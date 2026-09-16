@@ -4,7 +4,7 @@ function vbs {
 	elif [[ -f $LFP/uninstalled/$1/build.sh ]]; then
 		vim $LFP/uninstalled/$1/build.sh
 	else
-		cdlfp "$1"
+		cbs "$1"
 		vim $LFP/$1/build.sh
 	fi
 }
