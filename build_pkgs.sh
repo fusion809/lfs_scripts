@@ -24,7 +24,7 @@ function build_log_pkgs {
 	done <<< $pkgs
 }
 
-pkgs=$(pkg_list "$(empty_bdur_pkgs)" "$(upd_pkgs)")
+pkgs=$(pkg_list "$(bfail)" "$(empty_bdur_pkgs)" "$(upd_pkgs)")
 build_log_pkgs "$pkgs"
 pkgs=$(upd_pkgs_err_filt)
 build_log_pkgs "$pkgs"
