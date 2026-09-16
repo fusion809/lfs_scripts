@@ -383,3 +383,19 @@ function build_time {
 	local secs=$(($avg_duration_rnd % 60))
 	echo "$1 took ${hours}h ${mins}m ${secs}s to build"
 }
+
+function bfail {
+	grep -rl '^\[ERROR\]' ~/build_logs | cut -d '/' -f 5 | sort
+}
+
+function failmsg {
+	if [[ -n $2 ]]; then
+		grep -r '^\[ERROR\]' ~/build_logs/$1 -B $2
+	else
+		grep -r '^\[ERROR\]' ~/build_logs/$1 -B 20
+	fi
+}
+
+function shortbd {
+	grep -rl '^[0-9]$' ~/build_duration
+}

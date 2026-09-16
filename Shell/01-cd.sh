@@ -10,6 +10,10 @@ function cdbd {
 	cd ~/build_duration/$1
 }
 
+function cdbl {
+	cd ~/build_logs/$1
+}
+
 function cdbp {
 	cd $BP/$1
 }
@@ -22,8 +26,12 @@ function cddo {
 	cd $HOME/Downloads
 }
 
+function cdge {
+	cd /usr/share/gnome-shell/extensions/$1
+}
+
 function cde {
-	cd /usr/share/gnome-shell/extensions/executor@raujonas.github.io/$1
+	cdge executor@raujonas.github.io/$1
 }
 
 function cdi {
