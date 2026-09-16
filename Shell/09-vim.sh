@@ -1,5 +1,12 @@
 function vbs {
-	vim build.sh
+	if [[ -f $LFP/$1/build.sh ]]; then
+		vim $LFP/$1/build.sh
+	elif [[ -f $LFP/uninstalled/$1/build.sh ]]; then
+		vim $LFP/uninstalled/$1/build.sh
+	else
+		cdlfp "$1"
+		vim $LFP/$1/build.sh
+	fi
 }
 
 function vrm {

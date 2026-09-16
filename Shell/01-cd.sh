@@ -57,23 +57,16 @@ function cdlfa {
 function cdlfp_base {
 	cd ~/lfs_packaging/$1
 }
-function cdlfp {
-	if [[ -z "$1" ]]; then
-		cdlfp_base
-		return;
-	fi
-	if [[ -d "$HOME/lfs_packaging/$1" ]]; then
-		cdlfp_base "$1"
-		return;
-	fi
+
+function cbs {
 	if [[ -f /var/lib/book-packages/$1 ]]; then
 		mv /var/lib/book-packages/$1 /var/lib/custom-packages
 	fi
-	mkdir -p ~/lfs_packaging/$1
-	cdlfp_base "$1"
+
+	mkdir -p $LFP/$1
 	if [[ "$1" == *"github"* ]] || [[ "$2" == "github" ]]; then
 		if [[ "$3" == "cmake" ]]; then
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -96,7 +89,7 @@ rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
 elif [[ "$3" == "meson" ]]; then
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -119,7 +112,7 @@ rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
 else
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -138,9 +131,9 @@ cd ../
 rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
-		fi		
+		fi
 	elif [[ "$2" == "cmake" ]]; then
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -163,7 +156,7 @@ rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
 	elif [[ "$2" == "meson" ]]; then
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -186,7 +179,7 @@ rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
 	elif [[ "$1" == *"gnome"* ]] || [[ "$2" == "gnome" ]]; then
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -208,7 +201,7 @@ rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
 	elif [[ "$1" == *"kde"* ]] || [[ "$2" == "kde" ]]; then
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -232,7 +225,7 @@ rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
 	else
-		cat > build.sh <<EOF
+		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
 set -e
 name=$1
@@ -252,11 +245,27 @@ rm -rf "\$filename" "\$direname"
 echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
 EOF
 	fi
-	chmod +x build.sh
-	echo "build.sh created based on template..."
+	chmod +x $LFP/$1/build.sh
+	echo "$LFP/$1/build.sh created based on template..."
 	if [[ -f /var/lib/custom-packages/$1 ]]; then
+		echo "Adding dependencies"
 		add_deps "$1"
+	else
+		echo "Cannot add dependencies as package has not been built yet"
 	fi
+}
+
+function cdlfp {
+	if [[ -z "$1" ]]; then
+		cdlfp_base
+		return;
+	fi
+	if [[ -d "$HOME/lfs_packaging/$1" ]]; then
+		cdlfp_base "$1"
+		return;
+	fi
+	cbs "$1"
+	cdlfp_base "$1"
 	vim build.sh
 }
 
