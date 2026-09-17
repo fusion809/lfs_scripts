@@ -33,6 +33,10 @@ do
 		build_log_pkgs "$pkgs"
 		rm_old_share
 		rm_old_docs
+		pkgs=$(upd_pkgs_err_filt)
+		build_log_pkgs "$pkgs"
+		rm_old_share
+		rm_old_docs
 		break;
 	fi
 done
