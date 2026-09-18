@@ -24,9 +24,6 @@ function build_log_pkgs {
 	done <<< $pkgs
 }
 
-while :;
-do
-	if ! ps ax | grep '\.lfs_autobuild.sh' | grep -v "grep '\.lfs_autobuild.sh'" &> /dev/null; then
 		pkgs=$(pkg_list "$(bfail)" "$(empty_bdur_pkgs)" "$(upd_pkgs)")
 		build_log_pkgs "$pkgs"
 		pkgs=$(upd_pkgs_err_filt)
@@ -37,6 +34,3 @@ do
 		build_log_pkgs "$pkgs"
 		rm_old_share
 		rm_old_docs
-		break;
-	fi
-done
