@@ -433,3 +433,13 @@ sort -k1,1nr |
 cut -f2- |
 column -t -s $'\t' | less
 }
+
+function quick_updates {
+	pkgs=$(cat ~/logs/updates.log | grep "\[UPDATE\]" | cut -d ' ' -f 1)
+	if echo "$pkgs" | grep -E "[a-zA-Z]" &> /dev/null; then
+		echo "$pkgs"
+	else
+		echo "No updates available."
+	fi
+}
+alias qupdates=quick_updates
