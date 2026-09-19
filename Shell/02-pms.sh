@@ -435,9 +435,11 @@ column -t -s $'\t' | less
 }
 
 function quick_updates {
-	pkgs=$(cat ~/logs/updates.log | grep "\[UPDATE\]" | cut -d ' ' -f 1)
-	if echo "$pkgs" | grep -E "[a-zA-Z]" &> /dev/null; then
-		echo "$pkgs"
+	upds=$(cat $HOME/logs/updates.log \
+		| grep "\[UPDATE\]" \
+		| sed 's/\[UPDATE\]//g')
+	if echo "$upds" | grep -E "[a-zA-Z]" &> /dev/null; then
+		echo "$upds"
 	else
 		echo "No updates available."
 	fi
