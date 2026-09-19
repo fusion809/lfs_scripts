@@ -411,3 +411,25 @@ for f in /var/lib/custom-packages/*(N); do
 done
 echo $count
 }
+
+function ls_pkgs_by_bdur {
+	for pkg in /var/lib/custom-packages/*
+do
+    pkg=${pkg##*/}
+    log="$HOME/build_duration/$pkg"
+
+    [[ -s "$log" ]] || continue
+
+    avg=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f", sum/count; else print 0}' "$log")
+
+    hours=$((avg / 3600))
+    mins=$(((avg % 3600) / 60))
+    secs=$((avg % 60))
+
+    printf '%d\t%s\t%dh %dm %ds\n' \
+        "$avg" "$pkg" "$hours" "$mins" "$secs"
+done |
+sort -k1,1nr |
+cut -f2- |
+column -t -s $'\t' | less
+}
