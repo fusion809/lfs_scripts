@@ -445,3 +445,18 @@ function quick_updates {
 	fi
 }
 alias qupdates=quick_updates
+
+function qupdate {
+	pkgs=$(cat $HOME/logs/updates.log | grep -E '\[UPDATE\]|\[FILES MISSING\]' | cut -d ' ' -f 1 | tr '\n' ' ')
+	if echo $pkgs | grep -E "[a-z]"	&> /dev/null; then
+		autobuild "$pkgs" -f
+	fi
+}
+
+function qupdatec {
+	qupdate
+	rm_old_libs
+	rm_old_docs
+	rm_old_share
+	rm_old_kerns
+}
