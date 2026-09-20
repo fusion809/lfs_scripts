@@ -102,6 +102,25 @@ function updates_avg_read {
 	echo "${min}m${sec}s"
 }
 
+function updates_med {
+	sort -n "$HOME/logs/updates_duration.log" |
+awk '{
+    a[NR] = $1
+}
+END {
+    if (NR % 2)
+        print a[(NR + 1) / 2]
+    else
+        print (a[NR / 2] + a[NR / 2 + 1]) / 2
+}'
+}
+function updates_med_read {
+	local time=$(updates_med)
+	local min=$(($time / 60))
+	local sec=$(($time % 60))
+	echo "${min}m${sec}s"
+}
+	
 print_status() {
-	echo "$in_progress󰔚 $(updates_avg_read)  $mod_time  $no_updates 󰂕 $no_missing_total  ${no_failed}$(failed_version)"
+	echo "$in_progress󰔚 $(updates_med_read)  $mod_time  $no_updates 󰂕 $no_missing_total  ${no_failed}$(failed_version)"
 }
