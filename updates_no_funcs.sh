@@ -33,8 +33,21 @@ function updates_avg {
     echo "$avg_duration_rnd"
 }
 
+function updates_med {
+	sort -n "$HOME/logs/updates_duration.log" |
+awk '{
+    a[NR] = $1
+}
+END {
+    if (NR % 2)
+        print a[(NR + 1) / 2]
+    else
+        print (a[NR / 2] + a[NR / 2 + 1]) / 2
+}'
+}
+
 log_is_recent() {
-    local avg_duration_rnd=$(updates_avg)
+    local avg_duration_rnd=$(updates_med)
     local threshold=$(( 300 - avg_duration_rnd ))
     local log_age=$(( $(date +%s) - $(date +%s -r "$LOG") ))
     (( threshold >= log_age ))
@@ -102,18 +115,6 @@ function updates_avg_read {
 	echo "${min}m${sec}s"
 }
 
-function updates_med {
-	sort -n "$HOME/logs/updates_duration.log" |
-awk '{
-    a[NR] = $1
-}
-END {
-    if (NR % 2)
-        print a[(NR + 1) / 2]
-    else
-        print (a[NR / 2] + a[NR / 2 + 1]) / 2
-}'
-}
 function updates_med_read {
 	local time=$(updates_med)
 	local min=$(($time / 60))
