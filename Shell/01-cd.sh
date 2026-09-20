@@ -64,7 +64,7 @@ function cbs {
 	fi
 
 	mkdir -p $LFP/$1
-	if [[ "$1" == *"github"* ]] || [[ "$2" == "github" ]]; then
+	if [[ "$1" == *"ghr"* ]] || [[ "$2" == "ghr" ]]; then
 		if [[ "$3" == "cmake" ]]; then
 		cat > $LFP/$1/build.sh <<EOF
 #!/bin/bash
@@ -74,13 +74,10 @@ repo=\$name/\$name
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://github.com/\$repo/releases/download/\$direname/\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
-cmake_options=(-D CMAKE_INSTALL_PREFIX=/usr \
+ghr_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
+cmake_options=(
+      -D CMAKE_INSTALL_PREFIX=/usr \
       -D CMAKE_BUILD_TYPE=Release         \
       -D BUILD_TESTING=OFF)
 cmaki "\${cmake_options[@]}"
@@ -97,12 +94,8 @@ repo=\$name/\$name
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://github.com/\$repo/releases/download/\$direname/\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
+ghr_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
 meson_options=(--prefix=/usr       \
             --buildtype=release \
 	    -D tests=false)
@@ -120,12 +113,65 @@ repo=\$name/\$name
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://github.com/\$repo/releases/download/\$direname/\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
+ghr_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
+cmi --prefix=/usr --disable-static
+cd ../
+rm -rf "\$filename" "\$direname"
+echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
+EOF
+		fi
+	elif [[ "$2" == *"gha"* || "$1" == *"gha"* ]]; then
+		if [[ "$3" == "cmake" ]]; then
+		cat > $LFP/$1/build.sh <<EOF
+#!/bin/bash
+set -e
+name=$1
+repo=\$name/\$name
+version=\$(gh_ver \$repo)
+filename="\$name-\$version.tar.gz"
+direname="\${filename/.tar.*/}"
+gha_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
+cmake_options=(
+      -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release         \
+      -D BUILD_TESTING=OFF)
+cmaki "\${cmake_options[@]}"
+cd ../..
+rm -rf "\$filename" "\$direname"
+echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
+EOF
+elif [[ "$3" == "meson" ]]; then
+		cat > $LFP/$1/build.sh <<EOF
+#!/bin/bash
+set -e
+name=$1
+repo=\$name/\$name
+version=\$(gh_ver \$repo)
+filename="\$name-\$version.tar.gz"
+direname="\${filename/.tar.*/}"
+gha_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
+meson_options=(--prefix=/usr       \
+            --buildtype=release \
+	    -D tests=false)
+mni "\${meson_options[@]}"
+cd ../..
+rm -rf "\$filename" "\$direname"
+echo "\$version" | sudo tee "/var/lib/custom-packages/\$name"
+EOF
+else
+		cat > $LFP/$1/build.sh <<EOF
+#!/bin/bash
+set -e
+name=$1
+repo=\$name/\$name
+version=\$(gh_ver \$repo)
+filename="\$name-\$version.tar.gz"
+direname="\${filename/.tar.*/}"
+gha_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
 cmi --prefix=/usr --disable-static
 cd ../
 rm -rf "\$filename" "\$direname"
@@ -141,12 +187,8 @@ repo=\$name/\$name
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://github.com/\$repo/releases/download/\$direname/\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
+ghr_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
 cmake_options=(-D CMAKE_INSTALL_PREFIX=/usr \
       -D CMAKE_BUILD_TYPE=Release         \
       -D BUILD_TESTING=OFF)
@@ -164,12 +206,8 @@ repo=\$name/\$name
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
+ghr_download "\$repo" "v\$version" "\$filename"
+unpk_enter "\$filename" "\$direname"
 meson_options=(--prefix=/usr       \
             --buildtype=release \
 	    -D tests=false)
@@ -185,15 +223,10 @@ set -e
 name=$1
 repo=GNOME/\$name
 version=\$(gh_ver \$repo)
-majVer=\$(echo \$version | sed -E 's/\.[0-9]+\$//g')
 filename="\$name-\$version.tar.xz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://download.gnome.org/sources/\$name/\$majVer/\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
+gn_download "\$filename"
+unpk_enter "\$filename" "\$direname"
 options=(--prefix=/usr --buildtype=release)
 mni "\${options[@]}"
 cd ../..
@@ -207,15 +240,10 @@ set -e
 name=$1
 repo=KDE/\$name
 version=\$(gh_ver \$repo)
-majVer=\$(echo \$version | sed -E 's/\.[0-9]+\$//g')
 filename="\$name-\$version.tar.xz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://download.kde.org/stable/release-service/\$version/src/\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
+kde_download "\$filename"
+unpk_enter "\$filename" "\$direname"
 options=(-D CMAKE_INSTALL_PREFIX=/usr \
       -D CMAKE_BUILD_TYPE=Release         \
       -D BUILD_TESTING=OFF)
