@@ -5,12 +5,12 @@ DURATION_LOG="$HOME/logs/updates_duration.log"
 MAX_AGE=5 # Maximum age of updates.log in minutes
 
 if ! declare -f updates >/dev/null; then
-    updates() {
+    function updates {
         bash "$HOME/.lfs_scripts/lfs-updates.sh" "$@"
     }
 fi
 
-silent_updates() {
+function silent_updates {
     local start_time=$(date +%s)
     echo "$start_time" > "${LOG_TMP}.start"
     if updates 2>&1 | tee "$LOG_TMP" > /dev/null; then
@@ -33,6 +33,37 @@ function updates_avg {
     echo "$avg_duration_rnd"
 }
 
+function updates_iqr {
+	sort -n "$HOME/logs/updates_duration.log" |
+awk '
+{
+    a[NR] = $1
+}
+END {
+    n = NR
+
+    q1_pos = (n + 1) / 4
+    q3_pos = 3 * (n + 1) / 4
+
+    q1 = quartile(q1_pos)
+    q3 = quartile(q3_pos)
+
+    print q3 - q1
+}
+function quartile(pos,    lo, hi, frac) {
+    lo = int(pos)
+    hi = lo + 1
+    frac = pos - lo
+
+    if (lo < 1)
+        return a[1]
+    if (hi > n)
+        return a[n]
+
+    return a[lo] + frac * (a[hi] - a[lo])
+}'
+}
+
 function updates_med {
 	sort -n "$HOME/logs/updates_duration.log" |
 awk '{
@@ -46,14 +77,14 @@ END {
 }'
 }
 
-log_is_recent() {
+function log_is_recent {
     local avg_duration_rnd=$(updates_med)
     local threshold=$(( 300 - avg_duration_rnd ))
     local log_age=$(( $(date +%s) - $(date +%s -r "$LOG") ))
     (( threshold >= log_age ))
 }
 
-update_if_needed() {
+function update_if_needed {
     if [[ ! -f "$LOG" ]]; then
         # No log at all — refresh in background, print empty/zero stats now
         (
@@ -69,7 +100,7 @@ update_if_needed() {
     fi
 }
 
-read_log_stats() {
+function read_log_stats {
     if [[ -f "$LOG" ]]; then
         read -r no_updates no_missing no_files_missing no_failed < <(awk '
             /\[UPDATE\]/ { u++ }
@@ -88,7 +119,7 @@ read_log_stats() {
     fi
 }
 
-progress_status() {
+function progress_status {
     in_progress=""
     if [[ -f "$LOG_TMP" ]]; then
         in_progress="󰦕 "
@@ -100,7 +131,7 @@ progress_status() {
     fi
 }
 
-failed_version() {
+function failed_version {
     local failed_log="$HOME/logs/failed_versioning.log"
     if [[ -f "$failed_log" ]]; then
         local count=$(awk -F',' '!seen[$2]++ { count++ } END { print count+0 }' "$failed_log")
@@ -115,6 +146,11 @@ function updates_avg_read {
 	echo "${min}m${sec}s"
 }
 
+function updates_iqr_read {
+	local time=$(updates_iqr)
+	echo "${time}s"
+}
+
 function updates_med_read {
 	local time=$(updates_med)
 	local min=$(($time / 60))
@@ -122,6 +158,6 @@ function updates_med_read {
 	echo "${min}m${sec}s"
 }
 	
-print_status() {
-	echo "$in_progress󰔚 $(updates_med_read)  $mod_time  $no_updates 󰂕 $no_missing_total  ${no_failed}$(failed_version)"
+function print_status {
+	echo "$in_progress󰔚 $(updates_med_read) ($(updates_iqr_read))  $mod_time  $no_updates 󰂕 $no_missing_total  ${no_failed}$(failed_version)"
 }
