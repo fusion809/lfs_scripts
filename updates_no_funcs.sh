@@ -146,15 +146,19 @@ function updates_avg_read {
 	echo "${min}m${sec}s"
 }
 
+function R_eval {
+	R -q -e "$@" | grep "^\[1\]" | cut -d ' ' -f 2
+}
+
 function updates_iqr_read {
-	local time=$(updates_iqr)
+	local time=$(R_eval "round($(updates_iqr))")
 	echo "${time}s"
 }
 
 function updates_med_read {
 	local time=$(updates_med)
-	local min=$(($time / 60))
-	local sec=$(($time % 60))
+	local min=$(R_eval "round($time / 60)")
+	local sec=$(R_eval "round($time %% 60)")
 	echo "${min}m${sec}s"
 }
 	
