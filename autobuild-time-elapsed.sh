@@ -16,8 +16,8 @@ while IFS= read -r job; do
 		avg_duration_rnd=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f\n", sum/count; else print 0}' "$DURATION_LOG")
 		avg_duration_rnd=${avg_duration_rnd:-0}
 	fi
-	perc=$(R -q -e "$elapsed/$avg_duration_rnd" | grep "^\[1\]" | cut -d ' ' -f 2)
-	printf '%s time elapsed: %02d:%02d:%02d (%s percent completed)' \
+	perc=$(R -q -e "round($elapsed/$avg_duration_rnd*100)" | grep "^\[1\]" | cut -d ' ' -f 2)
+	printf '%s time elapsed: %02d:%02d:%02d (%s%% completed)' \
     	$pkg \
     	$((elapsed / 3600)) \
     	$(((elapsed % 3600) / 60)) \
