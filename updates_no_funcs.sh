@@ -157,7 +157,7 @@ function updates_iqr_read {
 
 function updates_med_read {
 	local time=$(updates_med)
-	local min=$(R_eval "round($time / 60)")
+	local min=$(R_eval "floor($time / 60)")
 	local sec=$(R_eval "round($time %% 60)")
 	echo "${min}m${sec}s"
 }
