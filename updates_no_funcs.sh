@@ -3,6 +3,9 @@ LOG="$HOME/logs/updates.log"
 LOG_TMP="$HOME/logs/updates.log.tmp"
 DURATION_LOG="$HOME/logs/updates_duration.log"
 MAX_AGE=5 # Maximum age of updates.log in minutes
+function R_eval {
+	R -q -e "$@" | grep "^\[1\]" | cut -d ' ' -f 2
+}
 
 if ! declare -f updates >/dev/null; then
     function updates {
@@ -78,7 +81,7 @@ END {
 }
 
 function log_is_recent {
-    local avg_duration_rnd=$(updates_med)
+	local avg_duration_rnd=$(R_eval "round($updates_med)")
     local threshold=$(( 300 - avg_duration_rnd ))
     local log_age=$(( $(date +%s) - $(date +%s -r "$LOG") ))
     (( threshold >= log_age ))
@@ -144,10 +147,6 @@ function updates_avg_read {
 	local min=$(($time / 60))
 	local sec=$(($time % 60))
 	echo "${min}m${sec}s"
-}
-
-function R_eval {
-	R -q -e "$@" | grep "^\[1\]" | cut -d ' ' -f 2
 }
 
 function updates_iqr_read {
