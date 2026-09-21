@@ -447,7 +447,7 @@ function quick_updates {
 alias qupdates=quick_updates
 
 function qupdate {
-	pkgs=$(cat $HOME/logs/updates.log | grep -E '\[UPDATE\]|\[FILES MISSING\]' | cut -d ' ' -f 1 | tr '\n' ' ')
+	pkgs=$(cat $HOME/logs/updates.log | grep -E '\[UPDATE\]|\[FILES MISSING\]' | cut -d ' ' -f 1 | tr '\n' ' ' | sed 's/\s*$//g')
 	if echo $pkgs | grep -E "[a-z]"	&> /dev/null; then
 		autobuild "$pkgs" -f
 	fi
