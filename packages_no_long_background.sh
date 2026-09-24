@@ -22,10 +22,7 @@ CP=$(comno custom);
 if [[ $CH != "$(stHash custom)" ]]; then
 	pip=$(pip3 list | wc -l)
 	R=$(Rscript -e 'ip <- installed.packages(); cat(ip[,1], sep="\n")' | wc -l)
-	julia=$(julia -e 'using Pkg; Pkg.status()' | wc -l)
-	if (( $julia == 0 )); then
-		julia="1"
-	fi
+	julia=$(julia -e 'using Pkg; Pkg.status()' | grep -v "Project.toml" | wc -l)
 	total=$(($julia+$pip+$R+$CN))
 	echo "$total [  $CN (󰊢 $CP)  $julia  $pip  $R]" > ~/logs/packages_no_long.log
 fi
