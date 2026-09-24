@@ -539,3 +539,24 @@ sort -rh -k1,1 |
 } |
 less -S
 }
+
+function btimes {
+    local jobs=$(ps ax | grep "autobuild\.sh" | grep -v "grep.*autobuild.sh")
+    if [[ -n "$jobs" ]]; then
+		echo "autobuild job(s):"
+    else
+		exit 1
+    fi
+    while IFS= read -r job; do
+        local start=$(ps -p "$(echo $job | awk '{print $1}')" -o lstart=)
+        local elapsed=$(( $(date +%s) - $(date -d "$start" +%s) ))
+        local pkg=$(echo $job | sed 's/.*.sh //g' | sed 's/-f//g' | sed 's/\s//g')
+        local perc=$(R -q -e "round($elapsed/$(med_build_time_sec $pkg)*100)" | grep "^\[1\]" | cut -d ' ' -f 2)
+        printf '%s time elapsed: %02d:%02d:%02d (%s%% completed)' \
+            $pkg \
+            $((elapsed / 3600)) \
+            $(((elapsed % 3600) / 60)) \
+            $((elapsed % 60)) \
+        $perc
+    done <<< $jobs
+}
