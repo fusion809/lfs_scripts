@@ -434,13 +434,13 @@ function shortbd {
 function count_pkgs_left {
 	local pkg=$(ps ax | grep autobuild.sh | grep -v "grep.*autobuild.sh" | sed 's/.*sh //g' | sed 's/-f//g')
 	count=0
-for f in /var/lib/custom-packages/*(N); do
-    name=${f:t}
-    if [[ "$name" > $pkg && ! -e ~/build_duration/$name ]]; then
-        ((count++))
-    fi
-done
-echo $count
+    for f in /var/lib/custom-packages/*(N); do
+        name=${f:t}
+        if [[ "$name" > $pkg && ! -e ~/build_duration/$name ]]; then
+            ((count++))
+        fi
+    done
+    echo $count
 }
 
 function ls_pkgs_by_bdur {
