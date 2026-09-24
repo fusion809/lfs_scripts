@@ -81,8 +81,8 @@ END {
 }
 
 function log_is_recent {
-	local avg_duration_rnd=$(R_eval "round($updates_med)")
-    local threshold=$(( 300 - avg_duration_rnd ))
+	local duration=$(R_eval "round($(updates_med)+$(updates_iqr))")
+    local threshold=$(( 300 - $duration ))
     local log_age=$(( $(date +%s) - $(date +%s -r "$LOG") ))
     (( threshold >= log_age ))
 }

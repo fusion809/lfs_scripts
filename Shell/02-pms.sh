@@ -371,17 +371,39 @@ function updatec_after {
 	done
 }
 
+# Average-based build_time
+#function build_time {
+#	local DURATION_LOG=$HOME/build_duration/$1
+#	local avg_duration_rnd=0
+#	if [[ -s "$DURATION_LOG" ]]; then
+#		avg_duration_rnd=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f\n", sum/count; else print 0}' "$DURATION_LOG")
+#		avg_duration_rnd=${avg_duration_rnd:-0}
+#	fi
+#	local hours=$(($avg_duration_rnd/3600))
+#	local mins=$((($avg_duration_rnd % 3600) / 60))
+#	local secs=$(($avg_duration_rnd % 60))
+#	echo "$1: ${hours}h${mins}m${secs}s"
+#}
+
 function build_time {
-	local DURATION_LOG=$HOME/build_duration/$1
-	local avg_duration_rnd=0
-	if [[ -s "$DURATION_LOG" ]]; then
-		avg_duration_rnd=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f\n", sum/count; else print 0}' "$DURATION_LOG")
-		avg_duration_rnd=${avg_duration_rnd:-0}
-	fi
-	local hours=$(($avg_duration_rnd/3600))
-	local mins=$((($avg_duration_rnd % 3600) / 60))
-	local secs=$(($avg_duration_rnd % 60))
-	echo "$1 took ${hours}h ${mins}m ${secs}s to build"
+    local DURATION_LOG=$HOME/build_duration/$1
+    local median_duration_rnd=0
+    if [[ -s "$DURATION_LOG" ]]; then
+        median_duration_rnd=$(sort -n "$DURATION_LOG" |
+            awk '{
+                a[NR] = $1
+            }
+            END {
+                if (NR == 0) print 0
+                else if (NR % 2) print a[(NR + 1) / 2]
+                else print (a[NR / 2] + a[NR / 2 + 1]) / 2
+            }')
+        median_duration_rnd=$(printf "%.0f" "$median_duration_rnd")
+    fi
+    local hours=$(($median_duration_rnd/3600))
+    local mins=$((($median_duration_rnd % 3600) / 60))
+    local secs=$(($median_duration_rnd % 60))
+    printf "%s: %02d:%02d:%02d\n" "$1" "$hours" "$mins" "$secs"
 }
 
 function bfail {
@@ -459,4 +481,52 @@ function qupdatec {
 	rm_old_docs
 	rm_old_share
 	rm_old_kerns
+}
+
+function ls_pkgs_size_by_bd {
+    find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
+while read -r dir; do
+    pkg=${dir##*/}
+    [[ -f "$HOME/build_duration/$pkg" ]] || continue
+
+    size=$(du_pkg "$pkg" | awk '{print $1}')
+    duration=$(sort -n "$HOME/build_duration/$pkg" |
+        awk '{
+            a[NR] = $1
+        }
+        END {
+            if (NR == 0) print 0
+            else if (NR % 2) print a[(NR + 1) / 2]
+            else print (a[NR / 2] + a[NR / 2 + 1]) / 2
+        }')
+    time=$(build_time "$pkg" | sed "s/^$pkg: //")
+
+    printf '%s\t%s\t%14s\t%s\n' "$duration" "$size" "$time" "$pkg"
+done |
+sort -nr -k1,1 |
+cut -f2- |
+{
+    printf '%-6s  %-14s  %s\n' "Size" "Build duration" "Package"
+    cat
+} |
+less -S
+}
+
+function ls_pkgs_bd_by_size {
+find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
+while read -r dir; do
+    pkg=${dir##*/}
+    [[ -f "$HOME/build_duration/$pkg" ]] || continue
+
+    size=$(du_pkg "$pkg" | awk '{print $1}')
+    time=$(build_time "$pkg" | sed "s/^$pkg: //")
+
+    printf '%s\t%14s\t%s\n' "$size" "$time" "$pkg"
+done |
+sort -rh -k1,1 |
+{
+    printf '%-6s  %14s  %s\n' "Size" "Build duration" "Package"
+    cat
+} |
+less -S
 }
