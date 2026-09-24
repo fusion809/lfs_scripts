@@ -372,20 +372,20 @@ function updatec_after {
 }
 
 # Average-based build_time
-#function build_time {
-#	local DURATION_LOG=$HOME/build_duration/$1
-#	local avg_duration_rnd=0
-#	if [[ -s "$DURATION_LOG" ]]; then
-#		avg_duration_rnd=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f\n", sum/count; else print 0}' "$DURATION_LOG")
-#		avg_duration_rnd=${avg_duration_rnd:-0}
-#	fi
-#	local hours=$(($avg_duration_rnd/3600))
-#	local mins=$((($avg_duration_rnd % 3600) / 60))
-#	local secs=$(($avg_duration_rnd % 60))
-#	echo "$1: ${hours}h${mins}m${secs}s"
-#}
+function avg_build_time {
+	local DURATION_LOG=$HOME/build_duration/$1
+	local avg_duration_rnd=0
+	if [[ -s "$DURATION_LOG" ]]; then
+		avg_duration_rnd=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f\n", sum/count; else print 0}' "$DURATION_LOG")
+		avg_duration_rnd=${avg_duration_rnd:-0}
+	fi
+	local hours=$(($avg_duration_rnd/3600))
+	local mins=$((($avg_duration_rnd % 3600) / 60))
+	local secs=$(($avg_duration_rnd % 60))
+	echo "$1: ${hours}h${mins}m${secs}s"
+}
 
-function build_time {
+function med_build_time_sec {
     local DURATION_LOG=$HOME/build_duration/$1
     local median_duration_rnd=0
     if [[ -s "$DURATION_LOG" ]]; then
@@ -400,11 +400,20 @@ function build_time {
             }')
         median_duration_rnd=$(printf "%.0f" "$median_duration_rnd")
     fi
-    local hours=$(($median_duration_rnd/3600))
-    local mins=$((($median_duration_rnd % 3600) / 60))
-    local secs=$(($median_duration_rnd % 60))
+    echo $median_duration_rnd
+}
+
+alias mbts=med_build_time_sec
+
+function med_build_time {
+    local median_duration=$(med_build_time_sec "$1")
+    local hours=$(($median_duration/3600))
+    local mins=$((($median_duration % 3600) / 60))
+    local secs=$(($median_duration % 60))
     printf "%s: %02d:%02d:%02d\n" "$1" "$hours" "$mins" "$secs"
 }
+
+alias mbt=med_build_time
 
 function bfail {
 	grep -rl '^\[ERROR\]' ~/build_logs | cut -d '/' -f 5 | sort
@@ -499,7 +508,7 @@ while read -r dir; do
             else if (NR % 2) print a[(NR + 1) / 2]
             else print (a[NR / 2] + a[NR / 2 + 1]) / 2
         }')
-    time=$(build_time "$pkg" | sed "s/^$pkg: //")
+    time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
 
     printf '%s\t%s\t%14s\t%s\n' "$duration" "$size" "$time" "$pkg"
 done |
@@ -519,7 +528,7 @@ while read -r dir; do
     [[ -f "$HOME/build_duration/$pkg" ]] || continue
 
     size=$(du_pkg "$pkg" | awk '{print $1}')
-    time=$(build_time "$pkg" | sed "s/^$pkg: //")
+    time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
 
     printf '%s\t%14s\t%s\n' "$size" "$time" "$pkg"
 done |

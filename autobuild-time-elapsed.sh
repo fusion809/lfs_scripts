@@ -5,18 +5,15 @@ if [[ -n "$jobs" ]]; then
 else
 	exit 1
 fi
+source $HOME/lfs-scripts/Shell/00-env.sh
+source $HOME/lfs-scripts/Shell/01-cd.sh
+source $HOME/lfs-scripts/Shell/02-pms.sh
 # Load build_time func
 while IFS= read -r job; do
 	start=$(ps -p "$(echo $job | awk '{print $1}')" -o lstart=)
 	elapsed=$(( $(date +%s) - $(date -d "$start" +%s) ))
 	pkg=$(echo $job | sed 's/.*.sh //g' | sed 's/-f//g' | sed 's/\s//g')
-	DURATION_LOG=$HOME/build_duration/$pkg
-	avg_duration_rnd=0
-	if [[ -s "$DURATION_LOG" ]]; then
-		avg_duration_rnd=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f\n", sum/count; else print 0}' "$DURATION_LOG")
-		avg_duration_rnd=${avg_duration_rnd:-0}
-	fi
-	perc=$(R -q -e "round($elapsed/$avg_duration_rnd*100)" | grep "^\[1\]" | cut -d ' ' -f 2)
+	perc=$(R -q -e "round($elapsed/$(med_build_time_sec $pkg)*100)" | grep "^\[1\]" | cut -d ' ' -f 2)
 	printf '%s time elapsed: %02d:%02d:%02d (%s%% completed)' \
     	$pkg \
     	$((elapsed / 3600)) \
