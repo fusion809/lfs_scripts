@@ -404,6 +404,7 @@ function med_build_time_sec {
 }
 
 alias mbts=med_build_time_sec
+alias mbtimesec=med_build_time_sec
 
 function med_build_time {
     local median_duration=$(med_build_time_sec "$1")
@@ -414,6 +415,7 @@ function med_build_time {
 }
 
 alias mbt=med_build_time
+alias mbtime=med_build_time
 
 function bfail {
 	grep -rl '^\[ERROR\]' ~/build_logs | cut -d '/' -f 5 | sort
@@ -445,21 +447,21 @@ function count_pkgs_left {
 
 function ls_pkgs_by_bdur {
 	for pkg in /var/lib/custom-packages/*
-do
-    pkg=${pkg##*/}
-    log="$HOME/build_duration/$pkg"
+    do
+        pkg=${pkg##*/}
+        log="$HOME/build_duration/$pkg"
 
-    [[ -s "$log" ]] || continue
+        [[ -s "$log" ]] || continue
 
-    avg=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f", sum/count; else print 0}' "$log")
+        avg=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f", sum/count; else print 0}' "$log")
 
-    hours=$((avg / 3600))
-    mins=$(((avg % 3600) / 60))
-    secs=$((avg % 60))
+        hours=$((avg / 3600))
+        mins=$(((avg % 3600) / 60))
+        secs=$((avg % 60))
 
-    printf '%d\t%s\t%dh %dm %ds\n' \
-        "$avg" "$pkg" "$hours" "$mins" "$secs"
-done |
+        printf '%d\t%s\t%dh %dm %ds\n' \
+            "$avg" "$pkg" "$hours" "$mins" "$secs"
+    done |
 sort -k1,1nr |
 cut -f2- |
 column -t -s $'\t' | less
@@ -540,7 +542,21 @@ sort -rh -k1,1 |
 less -S
 }
 
-function btimes {
+function btime_elapsed {
+    local start=$(ps -p "$(echo $1 | awk '{print $1}')" -o lstart=)
+    local elapsed=$(( $(date +%s) - $(date -d "$start" +%s) ))
+    echo "$elapsed"
+}
+
+function pkg_from_job {
+    echo $1 | sed 's/.*.sh //g' | sed 's/-f//g' | sed 's/\s//g'
+}
+
+function R_eval {
+    R -q -e "$1" | grep "^\[1\]" | cut -d ' ' -f 2
+}
+
+function cbtime {
     local jobs=$(ps ax | grep "autobuild\.sh" | grep -v "grep.*autobuild.sh")
     if [[ -n "$jobs" ]]; then
 		echo "autobuild job(s):"
@@ -548,10 +564,9 @@ function btimes {
 		exit 1
     fi
     while IFS= read -r job; do
-        local start=$(ps -p "$(echo $job | awk '{print $1}')" -o lstart=)
-        local elapsed=$(( $(date +%s) - $(date -d "$start" +%s) ))
-        local pkg=$(echo $job | sed 's/.*.sh //g' | sed 's/-f//g' | sed 's/\s//g')
-        local perc=$(R -q -e "round($elapsed/$(med_build_time_sec $pkg)*100)" | grep "^\[1\]" | cut -d ' ' -f 2)
+        local elapsed=$(btime_elapsed "$job")
+        local pkg=$(pkg_from_job "$job")
+        local perc=$(R_eval "round($elapsed/$(med_build_time_sec $pkg)*100)" )
         printf '%s time elapsed: %02d:%02d:%02d (%s%% completed)' \
             $pkg \
             $((elapsed / 3600)) \
@@ -559,4 +574,80 @@ function btimes {
             $((elapsed % 60)) \
         $perc
     done <<< $jobs
+}
+
+function btimes {
+    cat $HOME/build_duration/$1
+}
+
+function updates_avg {
+    local avg_duration_rnd=0
+    if [[ -s "$DURATION_LOG" ]]; then
+        avg_duration_rnd=$(awk '{sum+=$1; count++} END {if (count) printf "%.0f\n", sum/count; else print 0}' "$DURATION_LOG")
+        avg_duration_rnd=${avg_duration_rnd:-0}
+    fi
+    echo "$avg_duration_rnd"
+}
+
+function updates_iqr {
+	sort -n "$HOME/logs/updates_duration.log" |
+awk '
+{
+    a[NR] = $1
+}
+END {
+    n = NR
+
+    q1_pos = (n + 1) / 4
+    q3_pos = 3 * (n + 1) / 4
+
+    q1 = quartile(q1_pos)
+    q3 = quartile(q3_pos)
+
+    print q3 - q1
+}
+function quartile(pos,    lo, hi, frac) {
+    lo = int(pos)
+    hi = lo + 1
+    frac = pos - lo
+
+    if (lo < 1)
+        return a[1]
+    if (hi > n)
+        return a[n]
+
+    return a[lo] + frac * (a[hi] - a[lo])
+}'
+}
+
+function updates_med {
+	sort -n "$HOME/logs/updates_duration.log" |
+awk '{
+    a[NR] = $1
+}
+END {
+    if (NR % 2)
+        print a[(NR + 1) / 2]
+    else
+        print (a[NR / 2] + a[NR / 2 + 1]) / 2
+}'
+}
+
+function updates_avg_read {
+	local time=$(updates_avg)
+	local min=$(($time / 60))
+	local sec=$(($time % 60))
+	echo "${min}m${sec}s"
+}
+
+function updates_iqr_read {
+	local time=$(R_eval "round($(updates_iqr))")
+	echo "${time}s"
+}
+
+function updates_med_read {
+	local time=$(updates_med)
+	local min=$(R_eval "floor($time / 60)")
+	local sec=$(R_eval "round($time %% 60)")
+	echo "${min}m${sec}s"
 }
