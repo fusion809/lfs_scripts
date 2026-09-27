@@ -69,50 +69,78 @@ column -t -s $'\t' | less
 
 function ls_pkgs_size_by_bd {
     find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
-while read -r dir; do
-    pkg=${dir##*/}
-    [[ -f "$HOME/build_duration/$pkg" ]] || continue
+    while read -r dir; do
+        pkg=${dir##*/}
+        [[ -f "$HOME/build_duration/$pkg" ]] || continue
 
-    size=$(du_pkg "$pkg" | awk '{print $1}')
-    duration=$(sort -n "$HOME/build_duration/$pkg" |
-        awk '{
-            a[NR] = $1
-        }
-        END {
-            if (NR == 0) print 0
-            else if (NR % 2) print a[(NR + 1) / 2]
-            else print (a[NR / 2] + a[NR / 2 + 1]) / 2
-        }')
-    time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
+        size=
+        du_pkg_pkg=
 
-    printf '%s\t%s\t%14s\t%s\n' "$duration" "$size" "$time" "$pkg"
-done |
-sort -nr -k1,1 |
-cut -f2- |
-{
-    printf '%-6s  %-14s  %s\n' "Size" "Build duration" "Package"
-    cat
-} |
-less -S
+        if [[ -e "$CP/$pkg" ]]; then
+            du_pkg_pkg=$pkg
+        elif [[ -e "$CP/$pkg-bin" ]]; then
+            du_pkg_pkg=$pkg-bin
+        elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
+            du_pkg_pkg=${pkg%-bin}
+        fi
+
+        if [[ -n "$du_pkg_pkg" ]]; then
+            size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk '{print $1}')
+        fi
+        duration=$(sort -n "$HOME/build_duration/$pkg" |
+            awk '{
+                a[NR] = $1
+            }
+            END {
+                if (NR == 0) print 0
+                else if (NR % 2) print a[(NR + 1) / 2]
+                else print (a[NR / 2] + a[NR / 2 + 1]) / 2
+            }')
+        time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
+
+        printf '%s\t%s\t%14s\t%s\n' "$duration" "$size" "$time" "$pkg"
+    done |
+    sort -nr -k1,1 |
+    cut -f2- |
+    {
+        printf '%-6s  %-14s  %s\n' "Size" "Build duration" "Package"
+        cat
+    } |
+    tee "$HOME/logs/pkgs_size_by_bd" |
+    less -S
 }
 
 function ls_pkgs_bd_by_size {
-find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
-while read -r dir; do
-    pkg=${dir##*/}
-    [[ -f "$HOME/build_duration/$pkg" ]] || continue
+    find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
+    while read -r dir; do
+        pkg=${dir##*/}
+        [[ -f "$HOME/build_duration/$pkg" && -f "$CP/$pkg" ]] || continue
 
-    size=$(du_pkg "$pkg" | awk '{print $1}')
-    time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
+        size=
+        du_pkg_pkg=
 
-    printf '%s\t%14s\t%s\n' "$size" "$time" "$pkg"
-done |
-sort -rh -k1,1 |
-{
-    printf '%-6s  %14s  %s\n' "Size" "Build duration" "Package"
-    cat
-} |
-less -S
+        if [[ -e "$CP/$pkg" ]]; then
+            du_pkg_pkg=$pkg
+        elif [[ -e "$CP/$pkg-bin" ]]; then
+            du_pkg_pkg=$pkg-bin
+        elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
+            du_pkg_pkg=${pkg%-bin}
+        fi
+
+        if [[ -n "$du_pkg_pkg" ]]; then
+            size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk '{print $1}')
+        fi
+        time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
+
+        printf '%s\t%14s\t%s\n' "$size" "$time" "$pkg"
+    done |
+    sort -rh -k1,1 |
+    {
+        printf '%-6s  %14s  %s\n' "Size" "Build duration" "Package"
+        cat
+    } |
+    tee "$HOME/logs/pkgs_bd_by_size" |
+    less -S
 }
 
 function btime_elapsed {
