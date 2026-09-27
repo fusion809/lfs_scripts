@@ -25,8 +25,18 @@ function no_pkgs {
 }
 
 function uninst_pkgs {
-    ls_pkgs |   
+
+    ls_pkgs |
     while read -r pkg; do
-        [[ -e "$CP/$pkg" ]] || printf '%s\n' "$pkg"
+        if [[ -e "$CP/$pkg" ]]; then
+            continue
+        elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
+            printf '%s (%s installed)\n' "$pkg" "${pkg%-bin}"
+        elif [[ "$pkg" != *-bin && -e "$CP/${pkg}-bin" ]]; then
+            printf '%s (%s installed)\n' "$pkg" "${pkg}-bin"
+        else
+            printf '%s\n' "$pkg"
+        fi
     done
+
 }
