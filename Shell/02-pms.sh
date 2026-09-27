@@ -5,3 +5,5 @@ function autobuild {
     bash ~/.lfs_autobuild.sh "$@"
 }
 source ~/.lfs_scripts/lfs-vm-bootstrap.sh 2>/dev/null
+eval "$(pay-respects zsh --alias)"
+

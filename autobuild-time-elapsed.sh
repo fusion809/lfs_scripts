@@ -1,5 +1,6 @@
 #!/bin/zsh
-source $HOME/lfs-scripts/Shell/00-env.sh
-source $HOME/lfs-scripts/Shell/01-cd.sh
-source $HOME/lfs-scripts/Shell/02-pms.sh
+for i in $HOME/lfs-scripts/Shell/0*.sh $HOME/lfs-scripts/Shell/10-*.sh
+do
+	. "$i"
+done
 echo "$(cbtime)"

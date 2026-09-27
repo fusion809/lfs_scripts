@@ -108,3 +108,4 @@ do
 	source "$i"
 done
 source ~/.lfs_scripts/lfs-vm-bootstrap.sh 2>/dev/null
+source /etc/profile.d/fuck.sh
