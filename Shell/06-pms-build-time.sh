@@ -106,7 +106,7 @@ function ls_pkgs_size_by_bd {
         printf '%-6s  %-14s  %s\n' "Size" "Build duration" "Package"
         cat
     } |
-    tee "$HOME/logs/pkgs_size_by_bd" |
+    tee "$HOME/logs/pkgs_size_by_bd.log" |
     less -S
 }
 
@@ -139,7 +139,7 @@ function ls_pkgs_bd_by_size {
         printf '%-6s  %14s  %s\n' "Size" "Build duration" "Package"
         cat
     } |
-    tee "$HOME/logs/pkgs_bd_by_size" |
+    tee "$HOME/logs/pkgs_bd_by_size.log" |
     less -S
 }
 
