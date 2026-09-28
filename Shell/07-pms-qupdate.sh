@@ -11,10 +11,17 @@ function quick_updates {
 alias qupdates=quick_updates
 
 function qupdate {
-	pkgs=$(cat $HOME/logs/updates.log | grep -E '\[UPDATE\]|\[FILES MISSING\]' | cut -d ' ' -f 1 | tr '\n' ' ' | sed 's/\s*$//g')
-	if echo $pkgs | grep -E "[a-z]"	&> /dev/null; then
-		autobuild "$pkgs" -f
-	fi
+	#pkgs=$(cat $HOME/logs/updates.log | grep -E '\[UPDATE\]|\[FILES MISSING\]' | cut -d ' ' -f 1 | tr '\n' ' ' | sed 's/\s*$//g')
+	#if echo $pkgs | grep -E "[a-z]"	&> /dev/null; then
+#		autobuild $pkgs -f
+#	fi
+#	qupdate () {
+    pkgs=($(grep -E '\[UPDATE\]|\[FILES MISSING\]' "$HOME/logs/updates.log" |
+        cut -d ' ' -f 1))
+printf '<%s>\n' "${pkgs[@]}"
+    if ((${#pkgs[@]})); then
+        autobuild "${pkgs[@]}" -f
+    fi
 }
 
 function qupdatec {
