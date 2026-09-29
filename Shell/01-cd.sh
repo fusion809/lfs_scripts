@@ -62,7 +62,9 @@ function cbs {
 	if [[ -f /var/lib/book-packages/$1 ]]; then
 		mv /var/lib/book-packages/$1 /var/lib/custom-packages
 	fi
-
+	source $HOME/lfs_packaging/shared-funcs.sh
+	description=$(pkgdesc "$1" || pkgdesc "xorg-$1" || pkgdesc "${1/-bin/}")
+	url=$(pkgurl "$1" || pkgurl "xorg-$1" || pkgurl "${1/-bin/}")
 	mkdir -p $LFP/$1
 	if [[ "$1" == *"ghr"* ]] || [[ "$2" == "ghr" ]]; then
 		if [[ "$3" == "cmake" ]]; then
@@ -71,6 +73,8 @@ function cbs {
 set -e
 name=$1
 repo=\$name/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
@@ -92,6 +96,8 @@ set -e
 name=$1
 repo=\$name/\$name
 version=\$(gh_ver \$repo)
+homepage="$url"
+description="$description"
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
 ghr_download "\$repo" "v\$version" "\$filename"
@@ -110,6 +116,8 @@ else
 set -e
 name=$1
 repo=\$name/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
@@ -128,6 +136,8 @@ EOF
 set -e
 name=$1
 repo=\$name/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
@@ -149,6 +159,8 @@ set -e
 name=$1
 repo=\$name/\$name
 version=\$(gh_ver \$repo)
+homepage="$url"
+description="$description"
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
 gha_download "\$repo" "v\$version" "\$filename"
@@ -167,6 +179,8 @@ else
 set -e
 name=$1
 repo=\$name/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
@@ -184,6 +198,8 @@ EOF
 set -e
 name=$1
 repo=\$name/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
@@ -204,6 +220,8 @@ set -e
 name=$1
 repo=\$name/\$name
 version=\$(gh_ver \$repo)
+homepage="$url"
+description="$description"
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
 ghr_download "\$repo" "v\$version" "\$filename"
@@ -222,6 +240,8 @@ EOF
 set -e
 name=$1
 repo=GNOME/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.xz"
 direname="\${filename/.tar.*/}"
@@ -239,6 +259,8 @@ EOF
 set -e
 name=$1
 repo=KDE/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.xz"
 direname="\${filename/.tar.*/}"
@@ -258,15 +280,13 @@ EOF
 set -e
 name=$1
 repo=\$name/\$name
+homepage="$url"
+description="$description"
 version=\$(gh_ver \$repo)
 filename="\$name-\$version.tar.gz"
 direname="\${filename/.tar.*/}"
-if ! [[ -f \$filename ]]; then
-	wget -c https://github.com/\$repo/releases/download/\$direname/\$filename
-fi
-rm -rf "\$direname"
-tar xf "\$filename"
-cd "\$direname"
+ghr_download "\$repo" "\$direname" "\$filename"
+unpk_enter "\$filename" "\$direname"
 cmi --prefix=/usr --disable-static
 cd ../
 rm -rf "\$filename" "\$direname"
