@@ -67,82 +67,6 @@ cut -f2- |
 column -t -s $'\t' | less
 }
 
-function ls_pkgs_size_by_bd {
-    find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
-    while read -r dir; do
-        pkg=${dir##*/}
-        [[ -f "$HOME/build_duration/$pkg" ]] || continue
-
-        size=
-        du_pkg_pkg=
-
-        if [[ -e "$CP/$pkg" ]]; then
-            du_pkg_pkg=$pkg
-        elif [[ -e "$CP/$pkg-bin" ]]; then
-            du_pkg_pkg=$pkg-bin
-        elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
-            du_pkg_pkg=${pkg%-bin}
-        fi
-
-        if [[ -n "$du_pkg_pkg" ]]; then
-            size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk '{print $1}')
-        fi
-        duration=$(sort -n "$HOME/build_duration/$pkg" |
-            awk '{
-                a[NR] = $1
-            }
-            END {
-                if (NR == 0) print 0
-                else if (NR % 2) print a[(NR + 1) / 2]
-                else print (a[NR / 2] + a[NR / 2 + 1]) / 2
-            }')
-        time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
-
-        printf '%s\t%s\t%14s\t%s\n' "$duration" "$size" "$time" "$pkg"
-    done |
-    sort -nr -k1,1 |
-    cut -f2- |
-    {
-        printf '%-6s  %-14s  %s\n' "Size" "Build duration" "Package"
-        cat
-    } |
-    tee "$HOME/logs/pkgs_size_by_bd.log" |
-    less -S
-}
-
-function ls_pkgs_bd_by_size {
-    find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
-    while read -r dir; do
-        pkg=${dir##*/}
-        [[ -f "$HOME/build_duration/$pkg" && -f "$CP/$pkg" ]] || continue
-
-        size=
-        du_pkg_pkg=
-
-        if [[ -e "$CP/$pkg" ]]; then
-            du_pkg_pkg=$pkg
-        elif [[ -e "$CP/$pkg-bin" ]]; then
-            du_pkg_pkg=$pkg-bin
-        elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
-            du_pkg_pkg=${pkg%-bin}
-        fi
-
-        if [[ -n "$du_pkg_pkg" ]]; then
-            size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk '{print $1}')
-        fi
-        time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
-
-        printf '%s\t%14s\t%s\n' "$size" "$time" "$pkg"
-    done |
-    sort -rh -k1,1 |
-    {
-        printf '%-6s  %14s  %s\n' "Size" "Build duration" "Package"
-        cat
-    } |
-    tee "$HOME/logs/pkgs_bd_by_size.log" |
-    less -S
-}
-
 function btime_elapsed {
     local start=$(ps -p "$(echo $1 | awk '{print $1}')" -o lstart=)
     local elapsed=$(( $(date +%s) - $(date -d "$start" +%s) ))
@@ -276,4 +200,114 @@ function btimes {
 
 function shortbd {
 	grep -rl '^[0-9]$' ~/build_duration
+}
+
+function pkgs_table {
+	local sort_mode=${1:--a}
+
+	case "$sort_mode" in
+		-a)
+			sort_key=3
+			;;
+		-t|-b)
+			sort_key=4
+			;;
+		-s)
+			sort_key=5
+			;;
+		*)
+			printf 'Usage: pkgs_table [-a|-t|-b|-s]\n' >&2
+			printf '  -a  sort alphabetically (default)\n' >&2
+			printf '  -t  sort by build duration (descending)\n' >&2
+			printf '  -b  sort by build duration (descending)\n' >&2
+			printf '  -s  sort by package size (descending)\n' >&2
+			return 1
+			;;
+	esac
+
+	find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
+	while read -r dir; do
+		pkg=${dir##*/}
+
+		[[ -f "$HOME/build_duration/$pkg" ]] || continue
+
+		du_pkg_pkg=
+		if [[ -e "$CP/$pkg" ]]; then
+			du_pkg_pkg=$pkg
+		elif [[ -e "$CP/$pkg-bin" ]]; then
+			du_pkg_pkg=$pkg-bin
+		elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
+			du_pkg_pkg=${pkg%-bin}
+		else
+			continue
+		fi
+
+		size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
+		time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
+
+		[[ -n "$size" && -n "$time" ]] || continue
+
+		size_sort=$(awk -v s="$size" '
+			BEGIN {
+				if (s ~ /KiB$/) {
+					sub(/KiB$/, "", s)
+					print s * 1024
+				} else if (s ~ /MiB$/) {
+					sub(/MiB$/, "", s)
+					print s * 1024 * 1024
+				} else if (s ~ /GiB$/) {
+					sub(/GiB$/, "", s)
+					print s * 1024 * 1024 * 1024
+				} else if (s ~ /TiB$/) {
+					sub(/TiB$/, "", s)
+					print s * 1024 * 1024 * 1024 * 1024
+				} else {
+					print s
+				}
+			}
+		')
+
+		time_sort=$(awk -F: '{
+			if (NF == 3)
+				print $1 * 3600 + $2 * 60 + $3
+			else if (NF == 2)
+				print $1 * 60 + $2
+			else
+				print $1
+		}' <<< "$time")
+
+		printf '%s\t%s\t%s\t%s\t%s\n' \
+			"$size" "$time" "$pkg" "$time_sort" "$size_sort"
+	done |
+	{
+		case "$sort_mode" in
+			-a) sort -k3,3 ;;
+			-t|-b) sort -rn -k4,4 ;;
+			-s) sort -rn -k5,5 ;;
+		esac
+	} |
+	awk -F '\t' '
+		{
+			size[NR] = $1
+			time[NR] = $2
+			pkg[NR] = $3
+
+			if (length($1) > max_size)
+				max_size = length($1)
+		}
+		END {
+			time_width = length("Time")
+
+			printf "%*s %-*s %s\n",
+				max_size, "Size",
+				time_width + 3, "Time",
+				"Package"
+
+			for (i = 1; i <= NR; i++)
+				printf "%*s %-*s %s\n",
+					max_size, size[i],
+					time_width, time[i],
+					pkg[i]
+		}
+	' | less -S
 }
