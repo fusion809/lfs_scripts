@@ -25,7 +25,6 @@ function no_pkgs {
 }
 
 function uninst_pkgs {
-
     ls_pkgs |
     while read -r pkg; do
         if [[ -e "$CP/$pkg" ]]; then
@@ -39,4 +38,8 @@ function uninst_pkgs {
         fi
     done
 
+}
+
+function miss_pkgs {
+	uninst_pkgs | grep -v "installed"
 }
