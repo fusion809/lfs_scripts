@@ -211,16 +211,16 @@ function pkgs_table {
 	local log_file
 
 	case "$sort_mode" in
-		-a)
+		(-a)
 			log_file="$HOME/logs/pkgs_by_alpha.log"
 			;;
-		-t|-b)
+		(-t | -b)
 			log_file="$HOME/logs/pkgs_by_bd.log"
 			;;
-		-s)
+		(-s)
 			log_file="$HOME/logs/pkgs_by_size.log"
 			;;
-		*)
+		(*)
 			printf 'Usage: pkgs_table [-a|-t|-b|-s]\n' >&2
 			printf '  -a  sort alphabetically (default)\n' >&2
 			printf '  -t  sort by build duration (descending)\n' >&2
@@ -231,30 +231,46 @@ function pkgs_table {
 	esac
 
 	find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
-	while read -r dir; do
+	while read -r dir
+	do
 		pkg=${dir##*/}
 
 		[[ -f "$HOME/build_duration/$pkg" ]] || continue
 
 		du_pkg_pkg=
-		if [[ -e "$CP/$pkg" ]]; then
+		uninstalled=
+
+		if [[ -e "$CP/$pkg" ]]
+		then
 			du_pkg_pkg=$pkg
-		elif [[ -e "$CP/$pkg-bin" ]]; then
+		elif [[ -e "$CP/$pkg-bin" ]]
+		then
 			du_pkg_pkg=$pkg-bin
-		elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
+			uninstalled=' (u)'
+		elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]
+		then
 			du_pkg_pkg=${pkg%-bin}
+			uninstalled=' (u)'
+		else
+			uninstalled=' (u)'
+		fi
+
+		if [[ "$pkg" == "julia-bin" ]]
+		then
+			size=$(cat "$HOME/logs/julia-bin-size.log")
+		elif [[ -n "$du_pkg_pkg" ]]
+		then
+			size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
 		else
 			continue
 		fi
 
-		size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
-		if [[ $pkg == "julia-bin" ]]; then
-			size=$(cat $HOME/logs/julia-bin-size.log)
-		fi
 		time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
 		description=$(desc "$pkg")
 
 		[[ -n "$size" && -n "$time" ]] || continue
+
+		display_pkg="$pkg$uninstalled"
 
 		size_sort=$(awk -v s="$size" '
 			BEGIN {
@@ -286,22 +302,22 @@ function pkgs_table {
 		}' <<< "$time")
 
 		printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-			"$size" "$time" "$pkg" "$time_sort" "$size_sort" "$description"
+			"$size" "$time" "$display_pkg" "$time_sort" "$size_sort" "$description"
 	done |
 	{
 		case "$sort_mode" in
-			-a)
+			(-a)
 				sort -t '	' -k3,3
 				;;
-			-t|-b)
+			(-t | -b)
 				sort -t '	' -k4,4gr
 				;;
-			-s)
+			(-s)
 				sort -t '	' -k5,5gr
 				;;
 		esac
 	} |
- awk -F '\t' '
+	awk -F '\t' '
 	{
 		size[NR] = $1
 		time[NR] = $2
@@ -340,7 +356,7 @@ function pkgs_table {
 				max_pkg, pkg[i],
 				desc[i]
 	}
-' |
+	' |
 	tee "$log_file" |
 	less -S
 }
