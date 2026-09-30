@@ -201,6 +201,11 @@ function btimes {
 function shortbd {
 	grep -rl '^[0-9]$' ~/build_duration
 }
+
+function desc {
+	cat $LFP/$1/build.sh | grep "^description=" | cut -d '"' -f 2
+}
+
 function pkgs_table {
 	local sort_mode=${1:--a}
 	local log_file
@@ -247,6 +252,7 @@ function pkgs_table {
 			size=$(cat $HOME/logs/julia-bin-size.log)
 		fi
 		time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
+		description=$(desc "$pkg")
 
 		[[ -n "$size" && -n "$time" ]] || continue
 
@@ -279,8 +285,8 @@ function pkgs_table {
 				print $1
 		}' <<< "$time")
 
-		printf '%s\t%s\t%s\t%s\t%s\n' \
-			"$size" "$time" "$pkg" "$time_sort" "$size_sort"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$size" "$time" "$pkg" "$time_sort" "$size_sort" "$description"
 	done |
 	{
 		case "$sort_mode" in
@@ -295,30 +301,46 @@ function pkgs_table {
 				;;
 		esac
 	} |
-	awk -F '\t' '
-		{
-			size[NR] = $1
-			time[NR] = $2
-			pkg[NR] = $3
+ awk -F '\t' '
+	{
+		size[NR] = $1
+		time[NR] = $2
+		pkg[NR] = $3
+		desc[NR] = $6
 
-			if (length($1) > max_size)
-				max_size = length($1)
-		}
-		END {
-			time_width = length("Time")
+		if (length($1) > max_size)
+			max_size = length($1)
 
-			printf "%*s %-*s %s\n",
-				max_size, "Size",
-				time_width + 3, "Time",
-				"Package"
+		if (length($2) > max_time)
+			max_time = length($2)
 
-			for (i = 1; i <= NR; i++)
-				printf "%*s %-*s %s\n",
-					max_size, size[i],
-					time_width, time[i],
-					pkg[i]
-		}
-	' |
+		if (length($3) > max_pkg)
+			max_pkg = length($3)
+	}
+	END {
+		if (length("Size") > max_size)
+			max_size = length("Size")
+
+		if (length("Time") > max_time)
+			max_time = length("Time")
+
+		if (length("Package") > max_pkg)
+			max_pkg = length("Package")
+
+		printf "%-*s %-*s %-*s %s\n",
+			max_size, "Size",
+			max_time, "Time",
+			max_pkg, "Package",
+			"Description"
+
+		for (i = 1; i <= NR; i++)
+			printf "%-*s %-*s %-*s %s\n",
+				max_size, size[i],
+				max_time, time[i],
+				max_pkg, pkg[i],
+				desc[i]
+	}
+' |
 	tee "$log_file" |
 	less -S
 }
