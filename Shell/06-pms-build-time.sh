@@ -201,19 +201,19 @@ function btimes {
 function shortbd {
 	grep -rl '^[0-9]$' ~/build_duration
 }
-
 function pkgs_table {
 	local sort_mode=${1:--a}
+	local log_file
 
 	case "$sort_mode" in
 		-a)
-			sort_key=3
+			log_file="$HOME/logs/pkgs_by_alpha.log"
 			;;
 		-t|-b)
-			sort_key=4
+			log_file="$HOME/logs/pkgs_by_bd.log"
 			;;
 		-s)
-			sort_key=5
+			log_file="$HOME/logs/pkgs_by_size.log"
 			;;
 		*)
 			printf 'Usage: pkgs_table [-a|-t|-b|-s]\n' >&2
@@ -243,6 +243,9 @@ function pkgs_table {
 		fi
 
 		size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
+		if [[ $pkg == "julia-bin" ]]; then
+			size=$(cat $HOME/logs/julia-bin-size.log)
+		fi
 		time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
 
 		[[ -n "$size" && -n "$time" ]] || continue
@@ -281,9 +284,15 @@ function pkgs_table {
 	done |
 	{
 		case "$sort_mode" in
-			-a) sort -k3,3 ;;
-			-t|-b) sort -rn -k4,4 ;;
-			-s) sort -rn -k5,5 ;;
+			-a)
+				sort -t '	' -k3,3
+				;;
+			-t|-b)
+				sort -t '	' -k4,4gr
+				;;
+			-s)
+				sort -t '	' -k5,5gr
+				;;
 		esac
 	} |
 	awk -F '\t' '
@@ -309,5 +318,7 @@ function pkgs_table {
 					time_width, time[i],
 					pkg[i]
 		}
-	' | less -S
+	' |
+	tee "$log_file" |
+	less -S
 }
