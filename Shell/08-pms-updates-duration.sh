@@ -73,3 +73,26 @@ function updates_med_read {
 		echo "${sec}s"
 	fi
 }
+
+function log_len {
+	wc -l $HOME/logs/$1.log | cut -d ' ' -f 1
+}
+
+function mid_point {
+	local len=$1
+	R_eval "floor(($len+1)/2)"
+}
+
+function med_updates_duration {
+	local len=$(log_len "updates_duration")
+	local mid=$(mid_point $len)
+	local med=$(cat $HOME/logs/updates_duration.log | sort -h | tail -n $mid | head -n 1)
+	local min=$(R_eval "floor($med / 60)")
+	local sec=$(R_eval "round($med %% 60)")
+	if [[ "$min" -gt 0 ]]; then
+		echo "${min}m${sec}s"
+	else
+		echo "${sec}s"
+	fi
+
+}
