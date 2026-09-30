@@ -29,6 +29,12 @@ remaining=$((remaining % 3600))
 minutes=$((remaining / 60))
 seconds=$((remaining % 60))
 
-printf ' %02d/%02d/%02d %02d:%02d:%02d\n' \
-    "$days" "$months" "$years" \
-    "$hours" "$minutes" "$seconds"
+if [[ "$years" -gt 0 ]]; then
+	printf ' %02d/%02d/%02d %02d:%02d:%02d\n' \
+    		"$days" "$months" "$years" \
+    		"$hours" "$minutes" "$seconds"
+else
+	printf ' %02d/%02d %02d:%02d:%02d\n' \
+    		"$days" "$months" \
+    		"$hours" "$minutes" "$seconds"
+fi
