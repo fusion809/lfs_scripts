@@ -1,4 +1,3 @@
-
 function count_pkgs_left {
 	local pkg=$(ps ax | grep autobuild.sh | grep -v "grep.*autobuild.sh" | sed 's/.*sh //g' | sed 's/-f//g')
 	count=0
@@ -201,4 +200,8 @@ for i in $(find /usr/lib -type f -name \*.so* ! -name \*dbg) \
 done
 
 unset BIN LIB save_usrlib online_usrbin online_usrlib'
+}
+
+function shortbd {
+	grep -rl '^[0-9]$' ~/build_duration
 }
