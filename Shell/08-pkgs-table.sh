@@ -27,32 +27,41 @@ function pkgs_table {
 
 	if [[ ${#args[@]} -eq 0 ]]
 	then
-		args=(-a)
+		pkgs_table_help
+		return 0
 	fi
 
 	for arg in "${args[@]}"
 	do
-		if [[ "$arg" == -[atsb] ]]
-		then
-			sort_modes+=("${arg#-}")
-		elif [[ "$arg" == -?* ]]
-		then
-			while read -r opt
-			do
-				case "$opt" in
-					(a|t|b|s)
-						sort_modes+=("$opt")
-						;;
-					(*)
-						pkgs_table_help
-						return 1
-						;;
-				esac
-			done < <(printf '%s' "${arg#-}" | fold -w1)
-		else
-			pkgs_table_help
-			return 1
-		fi
+		case "$arg" in
+			-h|--help)
+				pkgs_table_help
+				return 0
+				;;
+			-*)
+				arg=${arg#-}
+
+				while [[ -n "$arg" ]]
+				do
+					opt=${arg%"${arg#?}"}
+					arg=${arg#?}
+
+					case "$opt" in
+						a|t|b|s)
+							sort_modes+=("$opt")
+							;;
+						*)
+							pkgs_table_help
+							return 1
+							;;
+					esac
+				done
+				;;
+			*)
+				pkgs_table_help
+				return 1
+				;;
+		esac
 	done
 
 	# Remove duplicate sort modes while preserving their order.
