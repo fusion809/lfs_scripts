@@ -21,9 +21,11 @@ EOF
 function pkgs_table {
 	local args=("$@")
 	local sort_modes=()
-	local arg mode opt
+	local arg mode opt sort_mode
 	local log_file
 	local multiple=false
+	local tmpfile
+	local sorted_tmpfile
 
 	if [[ ${#args[@]} -eq 0 ]]
 	then
@@ -64,7 +66,6 @@ function pkgs_table {
 		esac
 	done
 
-	# Remove duplicate sort modes while preserving their order.
 	local unique_modes=()
 
 	for mode in "${sort_modes[@]}"
@@ -82,140 +83,145 @@ function pkgs_table {
 		multiple=true
 	fi
 
+	tmpfile=$(mktemp) || return 1
+
+	find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
+	while read -r dir
+	do
+		pkg=${dir##*/}
+		logfile="$HOME/logs/$pkg.log"
+
+		uninstalled=
+		du_pkg_pkg=
+		ver_pkg=
+
+		if [[ -e "$CP/$pkg" ]]
+		then
+			du_pkg_pkg=$pkg
+			ver_pkg=$pkg
+		elif [[ -e "$CP/$pkg-bin" ]]
+		then
+			du_pkg_pkg=$pkg-bin
+			ver_pkg=$pkg-bin
+			uninstalled=' (u)'
+		elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]
+		then
+			du_pkg_pkg=${pkg%-bin}
+			ver_pkg=${pkg%-bin}
+			uninstalled=' (u)'
+		else
+			uninstalled=' (u)'
+		fi
+
+		if [[ -f "$logfile" ]]
+		then
+			size=$(tail -n 1 "$logfile")
+		elif [[ "$pkg" == "julia-bin" && -f "$HOME/logs/julia-bin-size.log" ]]
+		then
+			size=$(cat "$HOME/logs/julia-bin-size.log")
+		elif [[ -n "$du_pkg_pkg" ]]
+		then
+			size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
+			[[ -n "$size" ]] || size=-
+		else
+			size=-
+		fi
+
+		if [[ -f "$logfile" ]]
+		then
+			version=$(head -n 1 "$logfile")
+		elif [[ "$pkg" == "firefox" && -n "$uninstalled" ]]
+		then
+			version=$(lfs_ver firefox 2>/dev/null)
+		elif [[ -n "$ver_pkg" ]]
+		then
+			version=$(pkgver "$ver_pkg" 2>/dev/null)
+			[[ -n "$version" ]] || version=$(upver "$pkg" 2>/dev/null)
+		else
+			version=$(upver "$pkg" 2>/dev/null)
+		fi
+
+		[[ -n "$version" ]] || version=-
+
+		if [[ -f "$HOME/build_duration/$pkg" ]]
+		then
+			time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
+			[[ -n "$time" ]] || time=-
+		else
+			time=-
+		fi
+
+		description=$(pkgdesc "$pkg")
+		[[ -n "$description" ]] || description=-
+
+		display_pkg="$pkg$uninstalled"
+
+		if [[ "$size" == "-" ]]
+		then
+			size_sort=0
+		else
+			size_sort=$(awk -v s="$size" '
+				BEGIN {
+					if (s ~ /KiB$/) {
+						sub(/KiB$/, "", s)
+						print s * 1024
+					} else if (s ~ /MiB$/) {
+						sub(/MiB$/, "", s)
+						print s * 1024 * 1024
+					} else if (s ~ /GiB$/) {
+						sub(/GiB$/, "", s)
+						print s * 1024 * 1024 * 1024
+					} else if (s ~ /TiB$/) {
+						sub(/TiB$/, "", s)
+						print s * 1024 * 1024 * 1024 * 1024
+					} else {
+						print s
+					}
+				}
+			')
+		fi
+
+		if [[ "$time" == "-" ]]
+		then
+			time_sort=0
+		else
+			time_sort=$(awk -F: '{
+				if (NF == 3)
+					print $1 * 3600 + $2 * 60 + $3
+				else if (NF == 2)
+					print $1 * 60 + $2
+				else
+					print $1
+			}' <<< "$time")
+		fi
+
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$size" "$time" "$display_pkg" "$version" \
+			"$time_sort" "$size_sort" "$description"
+	done > "$tmpfile"
+
 	for sort_mode in "${sort_modes[@]}"
 	do
+		sorted_tmpfile=$(mktemp) || {
+			rm -f "$tmpfile"
+			return 1
+		}
+
 		case "$sort_mode" in
-			(a)
+			a)
 				log_file="$HOME/logs/pkgs_by_alpha.log"
+				sort -t '	' -k3,3 "$tmpfile" > "$sorted_tmpfile"
 				;;
-			(t|b)
+			t|b)
 				log_file="$HOME/logs/pkgs_by_bd.log"
+				sort -t '	' -k5,5gr "$tmpfile" > "$sorted_tmpfile"
 				;;
-			(s)
+			s)
 				log_file="$HOME/logs/pkgs_by_size.log"
+				sort -t '	' -k6,6gr "$tmpfile" > "$sorted_tmpfile"
 				;;
 		esac
 
-		find "$LFP" -mindepth 2 -maxdepth 2 -name build.sh -printf '%h\n' |
-		while read -r dir
-		do
-			pkg=${dir##*/}
-			build_file="$dir/build.sh"
-
-			uninstalled=
-			du_pkg_pkg=
-			ver_pkg=
-
-			if [[ -e "$CP/$pkg" ]]
-			then
-				du_pkg_pkg=$pkg
-				ver_pkg=$pkg
-			elif [[ -e "$CP/$pkg-bin" ]]
-			then
-				du_pkg_pkg=$pkg-bin
-				uninstalled=' (u)'
-			elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]
-			then
-				du_pkg_pkg=${pkg%-bin}
-				uninstalled=' (u)'
-			else
-				uninstalled=' (u)'
-			fi
-
-			if [[ "$pkg" == "julia-bin" ]]
-			then
-				size=$(cat "$HOME/logs/julia-bin-size.log")
-			elif [[ "$pkg" == "rust-bin" ]]; then
-				size=$(cat "$HOME/logs/rust-bin-size.log")
-			elif [[ -n "$du_pkg_pkg" ]]
-			then
-				size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
-				[[ -n "$size" ]] || size=-
-			else
-				size=-
-			fi
-
-			if [[ -n "$uninstalled" ]]
-			then
-				version=$(upver "$pkg" 2>/dev/null)
-				[[ -n "$version" ]] || version=-
-			elif [[ -n "$ver_pkg" ]]
-			then
-				version=$(pkgver "$ver_pkg")
-				[[ -n "$version" ]] || version=-
-			else
-				version=-
-			fi
-
-			if [[ -f "$HOME/build_duration/$pkg" ]]
-			then
-				time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
-				[[ -n "$time" ]] || time=-
-			else
-				time=-
-			fi
-
-			description=$(pkgdesc "$pkg")
-			[[ -n "$description" ]] || description=-
-
-			display_pkg="$pkg$uninstalled"
-
-			if [[ "$size" == "-" ]]
-			then
-				size_sort=0
-			else
-				size_sort=$(awk -v s="$size" '
-					BEGIN {
-						if (s ~ /KiB$/) {
-							sub(/KiB$/, "", s)
-							print s * 1024
-						} else if (s ~ /MiB$/) {
-							sub(/MiB$/, "", s)
-							print s * 1024 * 1024
-						} else if (s ~ /GiB$/) {
-							sub(/GiB$/, "", s)
-							print s * 1024 * 1024 * 1024
-						} else if (s ~ /TiB$/) {
-							sub(/TiB$/, "", s)
-							print s * 1024 * 1024 * 1024 * 1024
-						} else {
-							print s
-						}
-					}
-				')
-			fi
-
-			if [[ "$time" == "-" ]]
-			then
-				time_sort=0
-			else
-				time_sort=$(awk -F: '{
-					if (NF == 3)
-						print $1 * 3600 + $2 * 60 + $3
-					else if (NF == 2)
-						print $1 * 60 + $2
-					else
-						print $1
-				}' <<< "$time")
-			fi
-
-			printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-				"$size" "$time" "$display_pkg" "$version" \
-				"$time_sort" "$size_sort" "$description"
-		done |
-		{
-			case "$sort_mode" in
-				(a)
-					sort -t '	' -k3,3
-					;;
-				(t|b)
-					sort -t '	' -k5,5gr
-					;;
-				(s)
-					sort -t '	' -k6,6gr
-					;;
-			esac
-		} |
 		awk -F '\t' '
 		{
 			size[NR] = $1
@@ -233,8 +239,8 @@ function pkgs_table {
 			if (length($3) > max_pkg)
 				max_pkg = length($3)
 
-			if (length(substr($4, 1, 100)) > max_version)
-				max_version = length(substr($4, 1, 10))
+			if (length(version[NR]) > max_version)
+				max_version = length(version[NR])
 		}
 		END {
 			if (length("Size") > max_size)
@@ -264,11 +270,15 @@ function pkgs_table {
 					max_version, version[i],
 					desc[i]
 		}
-		' > "$log_file"
+		' "$sorted_tmpfile" > "$log_file"
+
+		rm -f "$sorted_tmpfile"
 
 		if [[ "$multiple" == false ]]
 		then
 			less -S "$log_file"
 		fi
 	done
+
+	rm -f "$tmpfile"
 }
