@@ -238,37 +238,40 @@ function pkgs_table {
 		[[ -f "$HOME/build_duration/$pkg" ]] || continue
 
 		du_pkg_pkg=
+		ver_pkg=
 		uninstalled=
 
 		if [[ -e "$CP/$pkg" ]]
 		then
 			du_pkg_pkg=$pkg
+			ver_pkg=$pkg
 		elif [[ -e "$CP/$pkg-bin" ]]
 		then
 			du_pkg_pkg=$pkg-bin
+			ver_pkg=$pkg-bin
 			uninstalled=' (u)'
 		elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]
 		then
 			du_pkg_pkg=${pkg%-bin}
+			ver_pkg=${pkg%-bin}
 			uninstalled=' (u)'
 		else
-			uninstalled=' (u)'
+			continue
 		fi
 
 		if [[ "$pkg" == "julia-bin" ]]
 		then
 			size=$(cat "$HOME/logs/julia-bin-size.log")
-		elif [[ -n "$du_pkg_pkg" ]]
-		then
-			size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
 		else
-			continue
+			size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
 		fi
+
+		version=$(pkgver "$ver_pkg")
 
 		time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
 		description=$(desc "$pkg")
 
-		[[ -n "$size" && -n "$time" ]] || continue
+		[[ -n "$size" && -n "$version" && -n "$time" ]] || continue
 
 		display_pkg="$pkg$uninstalled"
 
@@ -301,8 +304,9 @@ function pkgs_table {
 				print $1
 		}' <<< "$time")
 
-		printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-			"$size" "$time" "$display_pkg" "$time_sort" "$size_sort" "$description"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$size" "$time" "$display_pkg" "$version" \
+			"$time_sort" "$size_sort" "$description"
 	done |
 	{
 		case "$sort_mode" in
@@ -310,10 +314,10 @@ function pkgs_table {
 				sort -t '	' -k3,3
 				;;
 			(-t | -b)
-				sort -t '	' -k4,4gr
+				sort -t '	' -k5,5gr
 				;;
 			(-s)
-				sort -t '	' -k5,5gr
+				sort -t '	' -k6,6gr
 				;;
 		esac
 	} |
@@ -322,7 +326,8 @@ function pkgs_table {
 		size[NR] = $1
 		time[NR] = $2
 		pkg[NR] = $3
-		desc[NR] = $6
+		version[NR] = $4
+		desc[NR] = $7
 
 		if (length($1) > max_size)
 			max_size = length($1)
@@ -332,6 +337,9 @@ function pkgs_table {
 
 		if (length($3) > max_pkg)
 			max_pkg = length($3)
+
+		if (length($4) > max_version)
+			max_version = length($4)
 	}
 	END {
 		if (length("Size") > max_size)
@@ -343,17 +351,22 @@ function pkgs_table {
 		if (length("Package") > max_pkg)
 			max_pkg = length("Package")
 
-		printf "%-*s %-*s %-*s %s\n",
+		if (length("Version") > max_version)
+			max_version = length("Version")
+
+		printf "%-*s %-*s %-*s %-*s %s\n",
 			max_size, "Size",
 			max_time, "Time",
 			max_pkg, "Package",
+			max_version, "Version",
 			"Description"
 
 		for (i = 1; i <= NR; i++)
-			printf "%-*s %-*s %-*s %s\n",
+			printf "%-*s %-*s %-*s %-*s %s\n",
 				max_size, size[i],
 				max_time, time[i],
 				max_pkg, pkg[i],
+				max_version, version[i],
 				desc[i]
 	}
 	' |
