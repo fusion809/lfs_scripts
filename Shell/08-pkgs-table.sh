@@ -231,8 +231,8 @@ function pkgs_table {
 			if (length($3) > max_pkg)
 				max_pkg = length($3)
 
-			if (length($4) > max_version)
-				max_version = length($4)
+			if (length(substr($4, 1, 100)) > max_version)
+				max_version = length(substr($4, 1, 10))
 		}
 		END {
 			if (length("Size") > max_size)
