@@ -125,6 +125,8 @@ function pkgs_table {
 			if [[ "$pkg" == "julia-bin" ]]
 			then
 				size=$(cat "$HOME/logs/julia-bin-size.log")
+			elif [[ "$pkg" == "rust-bin" ]]; then
+				size=$(cat "$HOME/logs/rust-bin-size.log")
 			elif [[ -n "$du_pkg_pkg" ]]
 			then
 				size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
