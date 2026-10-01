@@ -234,12 +234,11 @@ function pkgs_table {
 	while read -r dir
 	do
 		pkg=${dir##*/}
+		build_file="$dir/build.sh"
 
-		[[ -f "$HOME/build_duration/$pkg" ]] || continue
-
+		uninstalled=
 		du_pkg_pkg=
 		ver_pkg=
-		uninstalled=
 
 		if [[ -e "$CP/$pkg" ]]
 		then
@@ -248,61 +247,89 @@ function pkgs_table {
 		elif [[ -e "$CP/$pkg-bin" ]]
 		then
 			du_pkg_pkg=$pkg-bin
-			ver_pkg=$pkg-bin
 			uninstalled=' (u)'
 		elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]
 		then
 			du_pkg_pkg=${pkg%-bin}
-			ver_pkg=${pkg%-bin}
 			uninstalled=' (u)'
 		else
-			continue
+			uninstalled=' (u)'
 		fi
 
 		if [[ "$pkg" == "julia-bin" ]]
 		then
 			size=$(cat "$HOME/logs/julia-bin-size.log")
-		else
+		elif [[ -n "$du_pkg_pkg" ]]
+		then
 			size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
+			[[ -n "$size" ]] || size=-
+		else
+			size=-
 		fi
 
-		version=$(pkgver "$ver_pkg")
+		if [[ -n "$uninstalled" ]]
+		then
+			version=$(upver "$pkg" 2>/dev/null)
+			[[ -n "$version" ]] || version=-
+		elif [[ -n "$ver_pkg" ]]
+		then
+			version=$(pkgver "$ver_pkg")
+			[[ -n "$version" ]] || version=-
+		else
+			version=-
+		fi
 
-		time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
+		if [[ -f "$HOME/build_duration/$pkg" ]]
+		then
+			time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
+			[[ -n "$time" ]] || time=-
+		else
+			time=-
+		fi
+
 		description=$(desc "$pkg")
-
-		[[ -n "$size" && -n "$version" && -n "$time" ]] || continue
+		[[ -n "$description" ]] || description=-
 
 		display_pkg="$pkg$uninstalled"
 
-		size_sort=$(awk -v s="$size" '
-			BEGIN {
-				if (s ~ /KiB$/) {
-					sub(/KiB$/, "", s)
-					print s * 1024
-				} else if (s ~ /MiB$/) {
-					sub(/MiB$/, "", s)
-					print s * 1024 * 1024
-				} else if (s ~ /GiB$/) {
-					sub(/GiB$/, "", s)
-					print s * 1024 * 1024 * 1024
-				} else if (s ~ /TiB$/) {
-					sub(/TiB$/, "", s)
-					print s * 1024 * 1024 * 1024 * 1024
-				} else {
-					print s
+		if [[ "$size" == "-" ]]
+		then
+			size_sort=0
+		else
+			size_sort=$(awk -v s="$size" '
+				BEGIN {
+					if (s ~ /KiB$/) {
+						sub(/KiB$/, "", s)
+						print s * 1024
+					} else if (s ~ /MiB$/) {
+						sub(/MiB$/, "", s)
+						print s * 1024 * 1024
+					} else if (s ~ /GiB$/) {
+						sub(/GiB$/, "", s)
+						print s * 1024 * 1024 * 1024
+					} else if (s ~ /TiB$/) {
+						sub(/TiB$/, "", s)
+						print s * 1024 * 1024 * 1024 * 1024
+					} else {
+						print s
+					}
 				}
-			}
-		')
+			')
+		fi
 
-		time_sort=$(awk -F: '{
-			if (NF == 3)
-				print $1 * 3600 + $2 * 60 + $3
-			else if (NF == 2)
-				print $1 * 60 + $2
-			else
-				print $1
-		}' <<< "$time")
+		if [[ "$time" == "-" ]]
+		then
+			time_sort=0
+		else
+			time_sort=$(awk -F: '{
+				if (NF == 3)
+					print $1 * 3600 + $2 * 60 + $3
+				else if (NF == 2)
+					print $1 * 60 + $2
+				else
+					print $1
+			}' <<< "$time")
+		fi
 
 		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
 			"$size" "$time" "$display_pkg" "$version" \
@@ -354,7 +381,7 @@ function pkgs_table {
 		if (length("Version") > max_version)
 			max_version = length("Version")
 
-		printf "%-*s %-*s %-*s %-*s %s\n",
+		printf "%*s %-*s %-*s %-*s %s\n",
 			max_size, "Size",
 			max_time, "Time",
 			max_pkg, "Package",
@@ -362,7 +389,7 @@ function pkgs_table {
 			"Description"
 
 		for (i = 1; i <= NR; i++)
-			printf "%-*s %-*s %-*s %-*s %s\n",
+			printf "%*s %-*s %-*s %-*s %s\n",
 				max_size, size[i],
 				max_time, time[i],
 				max_pkg, pkg[i],
