@@ -11,11 +11,6 @@ function quick_updates {
 alias qupdates=quick_updates
 
 function qupdate {
-	#pkgs=$(cat $HOME/logs/updates.log | grep -E '\[UPDATE\]|\[FILES MISSING\]' | cut -d ' ' -f 1 | tr '\n' ' ' | sed 's/\s*$//g')
-	#if echo $pkgs | grep -E "[a-z]"	&> /dev/null; then
-#		autobuild $pkgs -f
-#	fi
-#	qupdate () {
     pkgs=($(grep -E '\[UPDATE\]|\[FILES MISSING\]' "$HOME/logs/updates.log" |
         cut -d ' ' -f 1))
 printf '<%s>\n' "${pkgs[@]}"
@@ -24,6 +19,8 @@ printf '<%s>\n' "${pkgs[@]}"
     fi
 }
 
+alias quick_update=qupdate
+
 function qupdatec {
 	qupdate
 	rm_old_libs
@@ -31,3 +28,5 @@ function qupdatec {
 	rm_old_share
 	rm_old_kerns
 }
+
+alias quick_updatec=qupdatec

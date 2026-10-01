@@ -153,7 +153,7 @@ function pkgs_table {
 				time=-
 			fi
 
-			description=$(desc "$pkg")
+			description=$(pkgdesc "$pkg")
 			[[ -n "$description" ]] || description=-
 
 			display_pkg="$pkg$uninstalled"
