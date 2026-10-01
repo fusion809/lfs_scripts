@@ -219,7 +219,7 @@ function pkgs_table {
 			size[NR] = $1
 			time[NR] = $2
 			pkg[NR] = $3
-			version[NR] = $4
+			version[NR] = substr($4, 1, 10)
 			desc[NR] = $7
 
 			if (length($1) > max_size)
