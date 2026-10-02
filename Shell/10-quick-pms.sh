@@ -27,6 +27,7 @@ function qupdatec {
 	rm_old_docs
 	rm_old_share
 	rm_old_kerns
+	lfs_commit
 }
 
 alias quick_updatec=qupdatec
