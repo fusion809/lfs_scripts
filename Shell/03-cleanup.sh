@@ -31,6 +31,6 @@ function rm_old_kerns {
 	        echo "$file was deleted."
 	    fi
 	done
-	source ~/lfs-scripts/Shell/19-miscellaneous.sh
+	source ~/lfs-scripts/Shell/*-miscellaneous.sh
 	update-grub
 }
