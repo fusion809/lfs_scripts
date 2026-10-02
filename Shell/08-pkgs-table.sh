@@ -282,3 +282,9 @@ function pkgs_table {
 
 	rm -f "$tmpfile"
 }
+
+function logs_commit {
+	pushd ~/logs
+	push "Updating pkgs_table outputs"
+	popd
+}

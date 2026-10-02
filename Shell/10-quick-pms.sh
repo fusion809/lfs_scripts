@@ -28,6 +28,8 @@ function qupdatec {
 	rm_old_share
 	rm_old_kerns
 	lfs_commit
+	pkgs_table -ats
+	logs_commit
 }
 
 alias quick_updatec=qupdatec
