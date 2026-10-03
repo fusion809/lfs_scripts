@@ -145,7 +145,7 @@ function pkgs_table {
 
 		if [[ -f "$HOME/build_duration/$pkg" ]]
 		then
-			time=$(med_build_time "$pkg" | sed "s/^$pkg: 0//")
+			time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
 			[[ -n "$time" ]] || time=-
 		else
 			time=-
