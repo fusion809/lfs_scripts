@@ -288,3 +288,7 @@ function logs_commit {
 	push "Updating pkgs_table outputs"
 	popd
 }
+
+function pkgs_by {
+	less $HOME/logs/pkgs_by_"$1".log
+}

@@ -1,11 +1,12 @@
 export LANG=en_AU.UTF-8
 export BP=/var/lib/book-packages
 export CP=/var/lib/custom-packages
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rustc/lib:/opt/jdk/lib:/opt/qt6/lib:/opt/texlive/2025/lib
+export TEXLIVE_PREFIX=/opt/texlive/2026
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rustc/lib:/opt/jdk/lib:/opt/qt6/lib:$TEXLIVE_PREFIX/lib
 export LFP="$HOME/lfs_packaging"
 export LFS="$HOME/lfs-scripts"
 export LFD="$HOME/lfs_dotfiles"
-export PATH=$PATH:/opt/rustc/bin:/opt/jdk/bin:/opt/qt6/bin:/opt/texlive/2025/bin/x86_64-linux:/sbin:/usr/sbin:$HOME/.juliaup/bin
+export PATH=$PATH:/opt/rustc/bin:/opt/jdk/bin:/opt/qt6/bin:$TEXLIVE_PREFIX/bin/x86_64-linux:/sbin:/usr/sbin:$HOME/.juliaup/bin
 export QT6PREFIX=/opt/qt6
 export SRC="/sources"
 export ARC="$SRC/archives"
