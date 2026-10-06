@@ -32,8 +32,9 @@ function pkgs_table {
 	)
 
 	since=$((latest_log_time - 180))
-	if ! ( find $CP \
+	if ! ( find $CP $LFP \
 		-path $CP/.git -prune -o \
+		-path $LFP/.git -prune -o \
 		-type f -newermt "@$since" -print -quit |
 		grep -q . ); then
 		echo "$CP does not show any likely updates to the table."
