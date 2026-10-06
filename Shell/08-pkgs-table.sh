@@ -19,6 +19,26 @@ EOF
 }
 
 function pkgs_table {
+	logs=(
+		"$HOME/logs/pkgs_by_alpha.log"
+		"$HOME/logs/pkgs_by_size.log"
+		"$HOME/logs/pkgs_by_bd.log"
+	)
+
+	latest_log_time=$(
+	    stat -c '%Y' "${logs[@]}" |
+	    sort -n |
+	    tail -n1
+	)
+
+	since=$((latest_log_time - 180))
+	if ! ( find $CP \
+		-path $CP/.git -prune -o \
+		-type f -newermt "@$since" -print -quit |
+		grep -q . ); then
+		echo "$CP does not show any likely updates to the table."
+		return 1
+	fi
 	local args=("$@")
 	local sort_modes=()
 	local arg mode opt sort_mode
