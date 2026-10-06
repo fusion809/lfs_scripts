@@ -281,4 +281,6 @@ END {
 }'
 }
 
-
+function no_changed_files {
+	git diff | grep -c -- "--git a/"
+}
