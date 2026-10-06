@@ -189,7 +189,13 @@ function pkgdep {
 }
 
 function pkgrevdep {
-	local pkgname=$1
+	if [[ $1 =~ ^[a-z0-9_-]+$ && -f $LFP/$1/build.sh ]]; then
+		local pkgname=$1
+	else
+		echo "pkgrevdep takes a package name and returns the packages that " \
+		     "depend upon it based on the contents of their build.sh file."
+		return 1
+	fi
 	grep --include="build.sh" -R "depends=.*$pkgname" $LFP \
 		| sed "s|$LFP/||g" | cut -d '/' -f 1 | sort
 }
