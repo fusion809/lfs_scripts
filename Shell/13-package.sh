@@ -29,7 +29,7 @@ EOF
 		printf 'No build.sh found for %s\n' "$pkgname" >&2
 		return 1
     }
-	cat $LFP/$pkgname/build.sh | grep "^description=" | cut -d '=' -f 2
+	cat $LFP/$pkgname/build.sh | grep "^description=" | cut -d '"' -f 2
 }
 
 function pkgdown {
