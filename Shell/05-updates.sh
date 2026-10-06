@@ -1,4 +1,4 @@
-source $HOME/lfs-scripts/Shell/08-pkgs-table.sh
+source $HOME/lfs-scripts/Shell/09-pkgs-table.sh
 
 function updc {
 	update "$@"

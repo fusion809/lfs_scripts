@@ -26,9 +26,9 @@ function pkgs_table {
 	)
 
 	latest_log_time=$(
-	    stat -c '%Y' "${logs[@]}" |
-	    sort -n |
-	    tail -n1
+		stat -c '%Y' "${logs[@]}" |
+		sort -n |
+		tail -n1
 	)
 
 	since=$((latest_log_time - 180))
@@ -40,11 +40,13 @@ function pkgs_table {
 		echo "$CP does not show any likely updates to the table."
 		return 1
 	fi
+
 	local args=("$@")
 	local sort_modes=()
 	local arg mode opt sort_mode
 	local log_file
 	local multiple=false
+	local exclude_uninstalled=false
 	local tmpfile
 	local sorted_tmpfile
 
@@ -72,6 +74,9 @@ function pkgs_table {
 					case "$opt" in
 						a|t|b|s)
 							sort_modes+=("$opt")
+							;;
+						i)
+							exclude_uninstalled=true
 							;;
 						*)
 							pkgs_table_help
@@ -134,15 +139,22 @@ function pkgs_table {
 			uninstalled=' (u)'
 		fi
 
+		if [[ "$exclude_uninstalled" == true && -n "$uninstalled" ]]
+		then
+			continue
+		fi
+
 		if [[ -f "$logfile" ]]
 		then
 			size=$(tail -n 1 "$logfile")
-		elif [[ "$pkg" == "julia-bin" && -f "$HOME/logs/julia-bin-size.log" ]]
+		elif [[ "$pkg" == "julia-bin" &&
+			-f "$HOME/logs/julia-bin-size.log" ]]
 		then
 			size=$(cat "$HOME/logs/julia-bin-size.log")
 		elif [[ -n "$du_pkg_pkg" ]]
 		then
-			size=$(du_pkg "$du_pkg_pkg" 2>/dev/null | awk 'NR == 1 {print $1}')
+			size=$(du_pkg "$du_pkg_pkg" 2>/dev/null |
+				awk 'NR == 1 {print $1}')
 			[[ -n "$size" ]] || size=-
 		else
 			size=-
@@ -157,7 +169,8 @@ function pkgs_table {
 		elif [[ -n "$ver_pkg" ]]
 		then
 			version=$(pkgver "$ver_pkg" 2>/dev/null)
-			[[ -n "$version" ]] || version=$(upver "$pkg" 2>/dev/null)
+			[[ -n "$version" ]] ||
+				version=$(upver "$pkg" 2>/dev/null)
 		else
 			version=$(upver "$pkg" 2>/dev/null)
 		fi
