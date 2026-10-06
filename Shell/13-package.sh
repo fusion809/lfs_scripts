@@ -181,3 +181,15 @@ function upver {
 		printf '%s\n' "$version"
 	)
 }
+
+function pkgdep {
+	local pkgname=$1
+	grep -r "depends=" $LFP/$pkgname/build.sh | cut -d '(' -f 2 \
+	       | cut -d ')' -f 1
+}
+
+function pkgrevdep {
+	local pkgname=$1
+	grep --include="build.sh" -R "depends=.*$pkgname" $LFP \
+		| sed "s|$LFP/||g" | cut -d '/' -f 1 | sort
+}
