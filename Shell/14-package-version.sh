@@ -50,3 +50,26 @@ function upver {
 		printf '%s\n' "$version"
 	)
 }
+
+function verchecks {
+	for i in $LFP/*/build.sh
+	do
+		local pkg=$(echo $i | sed "s|$LFP/||g" | cut -d '/' -f 1)
+		printf "pkg=$pkg"
+		local arch_ver=$(aver $pkg | sed 's/\.r.*//g')
+		local mon_ver=$(uver $pkg 2>/dev/null)
+		local art_ver=$(artver $pkg | sed 's/\.r.*//g')
+		local nix_ver=$(nixver "$pkg" | sed 's/-unstable.*//g')
+		local inst_ver=$(pkgver $pkg)
+		local inst_ver_fx=$(echo $inst_ver | sed -E 's/-([0-9])/\.\1/g')
+		local vat_ver=$(vatver $pkg)
+		local newest=$(newest_ver $arch_ver $art_ver $mon_ver $nix_ver $vat_ver \
+			$inst_ver_fx)
+		if [[ "$inst_ver_fx" != "$newest" ]] && [[ -f $CP/$pkg ]] &&
+			! { [[ "$pkg" == "bash" || "$pkg" == "readline" ]] &&
+			[[ "$newest" =~ ^${inst_ver_fx//./\\.}\.[0-9]+$ ]]; }; then
+			printf " %s, %s" "$newest" "$inst_ver"
+		fi
+		printf "\n"
+	done
+}
