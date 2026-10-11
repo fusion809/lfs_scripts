@@ -335,8 +335,12 @@ function cdps {
 	cd ~/Screenshots/$1
 }
 
+#function cds {
+#	cd $SRC/$1
+#}
+
 function cds {
-	cd $SRC/$1
+	cd $HOME/SageMath/$1
 }
 
 function cdsap {

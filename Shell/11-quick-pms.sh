@@ -33,3 +33,11 @@ function qupdatec {
 }
 
 alias quick_updatec=qupdatec
+
+function qpyreb {
+	pkgs=$(grep -lRF -- '/usr/lib/python3.14' "$CP")
+printf '<%s>\n' "${pkgs[@]}"
+	if ((${#pkgs[@]})); then
+		autobuild "${pkgs[@]}" -f
+	fi
+}

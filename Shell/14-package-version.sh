@@ -57,7 +57,10 @@ function verchecks {
 		local pkg=$(echo $i | sed "s|$LFP/||g" | cut -d '/' -f 1)
 		printf "pkg=$pkg"
 		local arch_ver=$(aver $pkg | sed 's/\.r.*//g')
-		local mon_ver=$(uver $pkg 2>/dev/null)
+		local mon_ver=$(uver $pkg 2>$HOME/logs/uver_${pkg}.log)
+		if [[ $(cat $HOME/logs/uver_$pkg.log | wc -l) == "0" ]]; then
+			rm $HOME/logs/uver_$pkg.log
+		fi
 		local art_ver=$(artver $pkg | sed 's/\.r.*//g')
 		local nix_ver=$(nixver "$pkg" | sed 's/-unstable.*//g')
 		local inst_ver=$(pkgver $pkg)
