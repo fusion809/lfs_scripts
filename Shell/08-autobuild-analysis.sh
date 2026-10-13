@@ -137,23 +137,6 @@ function autobuild_log {
 
 
 function last_build {
-    local latest
-    latest=$(find "$HOME/build_logs" -type f -printf '%T@ %p\n' 2>/dev/null |
-        sort -nr |
-        head -n 1)
-
-    if [[ -n $latest ]]; then
-        local last_updated=${latest%% *}
-        local filepath=${latest#* }
-        local stamp
-        stamp=$(date -d "@${last_updated%.*}" '+%H:%M:%S %d/%m/%y')
-        local pkg=${filepath##*/}
-        pkg=${pkg%.*}
-
-        echo "Autobuild was last run at $stamp and it was run on $pkg."
-    else
-        echo "No files found in $HOME/build_logs"
-        return 1
-    fi
+	$HOME/lfs-scripts/last_autobuild.sh
 }
 
