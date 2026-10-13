@@ -12,6 +12,18 @@ function avg_build_time {
 	echo "$1: ${hours}h${mins}m${secs}s"
 }
 
+function readable_time {
+	if [[ "$1" =~ '^[0-9]+$' ]]; then
+		local hours=$(($1/3600))
+		local mins=$((($1 % 3600) / 60))
+		local secs=$(($1 % 60))
+		printf "%02d:%02d:%02d\n" "$hours" "$mins" "$secs"
+	else
+		echo "readable_time: argument must be a number!"
+		return 1
+	fi
+}
+
 function med_build_time_sec {
     local DURATION_LOG=$HOME/build_duration/$1
     local median_duration_rnd=0
@@ -35,10 +47,7 @@ alias mbtimesec=med_build_time_sec
 
 function med_build_time {
     local median_duration=$(med_build_time_sec "$1")
-    local hours=$(($median_duration/3600))
-    local mins=$((($median_duration % 3600) / 60))
-    local secs=$(($median_duration % 60))
-    printf "%s: %02d:%02d:%02d\n" "$1" "$hours" "$mins" "$secs"
+    printf "%s: %s\n" "$1" "$(readable_time "$median_duration")"
 }
 
 alias mbt=med_build_time
@@ -114,4 +123,20 @@ function iqr_build_time {
 
 function btimes {
     cat $HOME/build_duration/$1
+}
+
+function remaining_buildtime {
+	local pkgs=($(grep -E '\[UPDATE\]|\[FILES MISSING\]' "$HOME/logs/updates.log" |
+        cut -d ' ' -f 1))
+	printf "Assuming the following packages will be updated...\n" 
+    printf '<%s>\n' "${pkgs[@]}"
+	local time=0
+	for i in "${pkgs[@]}"
+	do
+		(( time+=$(med_build_time_sec "$i") ))
+	done
+	(( time-=$(ps -p $(cbtime | grep -oE " [0-9]+)" | sed 's/ //g' | sed 's/)//g') o etimes= | sed 's/\s//g') ))
+	printf "The median time to update these packages should be $(readable_time $time).\n"
+	finish=$(date -d "@$(($(date +%s) + $time))" '+%I:%M:%S %p %d/%m/%y')
+	echo "Median finish time: $finish"
 }
