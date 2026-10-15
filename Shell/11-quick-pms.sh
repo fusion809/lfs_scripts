@@ -17,6 +17,7 @@ printf '<%s>\n' "${pkgs[@]}"
     if ((${#pkgs[@]})); then
         autobuild "${pkgs[@]}" -f
     fi
+    pipup
 }
 
 alias quick_update=qupdate
