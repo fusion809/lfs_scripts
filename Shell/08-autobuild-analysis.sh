@@ -12,6 +12,16 @@ function R_eval {
     R -q -e "$1" | grep "^\[1\]" | cut -d ' ' -f 2
 }
 
+# Return true if a build process for $pkg is live
+function _pkg_build_running {
+    local pkg="$1"
+    # Custom-package path: sudo bash /tmp/remote_script_${pkg}.sh
+    pgrep -f "remote_script_${pkg}" > /dev/null 2>&1 && return 0
+    # Book-package path: bash autobuild.sh ... ${pkg}
+    pgrep -fa "" 2>/dev/null | grep -qE "(lfs_autobuild|autobuild)[^/[:space:]]*[[:space:]].*\b${pkg}\b" && return 0
+    return 1
+}
+
 # Get the currently building package for a given autobuild PID
 function current_pkg_from_pid {
     local pid="$1"
@@ -25,13 +35,14 @@ function current_pkg_from_pid {
         return
     fi
 
-    # 2. Check for active /tmp/build_start_timestamp_*
-    local ts_file
-    ts_file=$(ls -t /tmp/build_start_timestamp_* 2>/dev/null | head -n 1)
-    if [[ -n "$ts_file" ]]; then
-        echo "${ts_file#/tmp/build_start_timestamp_}"
-        return
-    fi
+    # 2. Check for active /tmp/build_start_timestamp_* — verify each via pgrep
+    #    so stale files left by kill -9 are skipped
+    local ts_file pkg
+    while IFS= read -r ts_file; do
+        [[ -z "$ts_file" ]] && continue
+        pkg="${ts_file#/tmp/build_start_timestamp_}"
+        _pkg_build_running "$pkg" && echo "$pkg" && return
+    done < <(ls -t /tmp/build_start_timestamp_* 2>/dev/null)
 
     # 3. Check child processes (e.g. tee writing to build_logs/<pkg>)
     local child_pkg
