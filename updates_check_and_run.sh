@@ -34,7 +34,7 @@ upver () {
 	)
 }
 
-
+source $HOME/lfs_packaging/shared-funcs.sh
 set -u
 logfile="$HOME/logs/updates.log"
 logdir="$HOME/logs"
