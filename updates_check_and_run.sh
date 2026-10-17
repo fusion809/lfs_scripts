@@ -1,8 +1,41 @@
-
 #!/bin/bash
+pkgver () {
+	if [[ -n $2 ]]
+	then
+		find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
+            lines=$1
+            shift
+            for file; do
+                head -n "$lines" "$file" | tail -n 1
+            done
+        ' sh "$2" {} + | sort -V | tail -n 1
+	else
+		find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
+            for file; do
+                head -n 1 "$file"
+            done
+        ' sh {} + | sort -V | tail -n 1
+	fi
+}
+upver () {
+	local pkgname=$1
+	if [[ -f $LFP/$pkgname/build.sh ]]
+	then
+		local build_sh="$LFP/$pkgname/build.sh"
+	else
+		printf 'No build.sh found for %s\n' "$pkgname" >&2
+		return 1
+	fi
+	(
+		source <(
+			sed -n '1,/^version=/p' "$build_sh"
+		)
+		printf '%s\n' "$version"
+	)
+}
+
 
 set -u
-
 logfile="$HOME/logs/updates.log"
 logdir="$HOME/logs"
 
@@ -29,11 +62,23 @@ if [[ ! -f $logfile ]]; then
 fi
 
 # Identify packages requiring updates.
-mapfile -t pkgs < <(
+mapfile -t pkgs_updates < <(
     awk '/\[UPDATE\]|\[FILES MISSING\]/ { print $1 }' "$logfile"
 )
 
-if ((${#pkgs[@]} == 0)); then
+pkgs=()
+if (( ${#pkgs_updates[@]} > 0 )); then
+	for i in ${pkgs_updates[@]}
+	do
+		if [[ $(upver $i) != $(pkgver $i) ]]; then
+			pkgs+=("$i")
+		fi
+	done
+	if (( ${#pkgs[@]} == 0 )); then
+		echo "No packages need updating."
+		exit 0
+	fi
+else
     echo "No packages need updating."
     exit 0
 fi
