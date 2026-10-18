@@ -104,8 +104,9 @@ else
     exit 0
 fi
 
-printf 'Packages needing attention: %s\n' "${(j: :)pkgs}"
-
+printf 'Packages needing attention:'
+printf ' %s' "${pkgs[@]}"
+printf '\n'
 # Check whether the autobuild script is already running.
 autobuild_running=false
 
