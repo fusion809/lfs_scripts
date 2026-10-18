@@ -1,41 +1,45 @@
-#!/bin/bash
-pkgver () {
-	if [[ -n $2 ]]
-	then
-		find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
+
+#!/bin/zsh
+
+function pkgver {
+    if [[ -n ${2-} ]]; then
+        find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
             lines=$1
             shift
             for file; do
                 head -n "$lines" "$file" | tail -n 1
             done
         ' sh "$2" {} + | sort -V | tail -n 1
-	else
-		find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
+    else
+        find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
             for file; do
                 head -n 1 "$file"
             done
         ' sh {} + | sort -V | tail -n 1
-	fi
-}
-upver () {
-	local pkgname=$1
-	if [[ -f $LFP/$pkgname/build.sh ]]
-	then
-		local build_sh="$LFP/$pkgname/build.sh"
-	else
-		printf 'No build.sh found for %s\n' "$pkgname" >&2
-		return 1
-	fi
-	(
-		source <(
-			sed -n '1,/^version=/p' "$build_sh"
-		)
-		printf '%s\n' "$version"
-	)
+    fi
 }
 
-source $HOME/lfs_packaging/shared-funcs.sh
+function upver {
+    local pkgname=$1
+
+    if [[ -f $LFP/$pkgname/build.sh ]]; then
+        local build_sh="$LFP/$pkgname/build.sh"
+    else
+        printf 'No build.sh found for %s\n' "$pkgname" >&2
+        return 1
+    fi
+
+    (
+        source <(
+            sed -n '1,/^version=/p' "$build_sh"
+        )
+        printf '%s\n' "$version"
+    )
+}
+
+source "$HOME/lfs_packaging/shared-funcs.sh"
 set -u
+
 logfile="$HOME/logs/updates.log"
 logdir="$HOME/logs"
 
@@ -62,28 +66,45 @@ if [[ ! -f $logfile ]]; then
 fi
 
 # Identify packages requiring updates.
-mapfile -t pkgs_updates < <(
+# Read lines into a Zsh array; mapfile is a Bash-only builtin.
+pkgs_updates=()
+while IFS= read -r pkg; do
+    [[ -n $pkg ]] && pkgs_updates+=("$pkg")
+done < <(
     awk '/\[UPDATE\]|\[FILES MISSING\]/ { print $1 }' "$logfile"
 )
 
 pkgs=()
+
 if (( ${#pkgs_updates[@]} > 0 )); then
-	for i in ${pkgs_updates[@]}
-	do
-		if [[ $(upver $i) != $(pkgver $i) ]]; then
-			pkgs+=("$i")
-		fi
-	done
-	if (( ${#pkgs[@]} == 0 )); then
-		echo "No packages need updating."
-		exit 0
-	fi
+    for pkg in "${pkgs_updates[@]}"; do
+        upstream_version=$(upver "$pkg") || {
+            echo "WARNING: Could not determine upstream version for $pkg; retaining it."
+            pkgs+=("$pkg")
+            continue
+        }
+
+        installed_version=$(pkgver "$pkg") || {
+            echo "WARNING: Could not determine installed version for $pkg; retaining it."
+            pkgs+=("$pkg")
+            continue
+        }
+
+        if [[ $upstream_version != "$installed_version" ]]; then
+            pkgs+=("$pkg")
+        fi
+    done
+
+    if (( ${#pkgs[@]} == 0 )); then
+        echo "No packages need updating."
+        exit 0
+    fi
 else
     echo "No packages need updating."
     exit 0
 fi
 
-printf 'Packages needing attention: %s\n' "${pkgs[*]}"
+printf 'Packages needing attention: %s\n' "${(j: :)pkgs}"
 
 # Check whether the autobuild script is already running.
 autobuild_running=false
