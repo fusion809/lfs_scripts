@@ -1,7 +1,18 @@
 function rm_lfp_src {
 	cdlfp
-	for tarball in $(find . -name '*.tar*'); do
-    		dir=${tarball%.tar.*}   # removes .tar.xz, .tar.gz, .tar.bz2, etc.
+	for tarball in $(find . -type f \( \
+    -name '*.tar.*' -o \
+    -name '*.tgz' -o \
+    -name '*.deb' -o \
+    -name '*.rpm' \
+    \)); do
+		if echo $tarball | grep ".tar" &> /dev/null; then
+    			dir=${tarball%.tar.*}   # removes .tar.xz, .tar.gz, .tar.bz2, etc.
+		elif echo $tarball | grep tgz &> /dev/null; then
+			dir=${tarball%.tgz}
+		else
+			dir=${tarball%.*}
+		fi
     		if [[ -d "$dir" ]]; then
 			sudo rm -rf "$dir"
 			sudo rm -rf "$tarball"
