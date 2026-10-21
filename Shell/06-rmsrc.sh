@@ -14,7 +14,9 @@ function rm_lfp_src {
 			dir=${tarball%.*}
 		fi
     		if [[ -d "$dir" ]]; then
-			sudo rm -rf "$dir"
+			if ! pgrep -f autobuild.sh &> /dev/null; then
+				sudo rm -rf "$dir"
+			fi
 			sudo rm -rf "$tarball"
 		else
 			sudo rm -rf "$tarball"
