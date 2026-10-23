@@ -19,7 +19,7 @@ function perc_fileless {
 }
 
 function inv {
-	find /var/lib/{book,custom}-packages -type f -name "*$1*" -exec sh -c '
+	find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
     for file; do
         tail -n +2 "$file"
     done
