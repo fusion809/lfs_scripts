@@ -14,7 +14,7 @@ function rm_lfp_src {
 			dir=${tarball%.*}
 		fi
     		if [[ -d "$dir" ]]; then
-			if ! pgrep -f autobuild.sh &> /dev/null; then
+			if (( $(pgrep -fc '\.lfs_autobuild\.sh|ninja|cmake|make|configure|autogen|autoreconf') > 1 )); then
 				sudo rm -rf "$dir"
 			fi
 			sudo rm -rf "$tarball"
