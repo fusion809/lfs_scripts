@@ -39,3 +39,7 @@ remove_duplicate_book_packages() {
 }
 
 alias rm_dup_bp=remove_duplicate_book_packages
+
+function who_owns {
+	grep --include="*" -R "$@" $CP | sed "s|$CP/||g"
+}
