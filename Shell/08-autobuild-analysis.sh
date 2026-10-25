@@ -189,7 +189,7 @@ function update_time_left {
     build_time=$(cbtime_sec)
     local pkg=$(current_pkg_from_pid $(pgrep -f '\.lfs_autobuild\.sh'))
     if (( $(med_build_time_sec $pkg) < $build_time )); then
-	    echo "Build time has exceed median build time."
+	    echo "Build time has exceeded median build time."
 	    build_time=$(med_build_time_sec $pkg)
     fi
     echo "build_time=$build_time"
