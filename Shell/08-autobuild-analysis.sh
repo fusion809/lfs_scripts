@@ -151,3 +151,50 @@ function last_build {
 	$HOME/lfs-scripts/last_autobuild.sh
 }
 
+function cbtime_sec {
+    local jobs
+    jobs=$(ps -eo pid,cmd | grep "[a]utobuild\.sh")
+
+    if [[ -z "$jobs" ]]; then
+        echo "No autobuild job(s) running."
+        return 1
+    fi
+
+    local total_elapsed=0
+
+    while IFS= read -r job; do
+        [[ -z "$job" ]] && continue
+
+        local pid pkg elapsed
+        pid=$(awk '{print $1}' <<< "$job")
+        pkg=$(current_pkg_from_pid "$pid")
+        elapsed=$(btime_pkg_elapsed "$pid" "$pkg") || continue
+        total_elapsed=$(R_eval "$total_elapsed + $elapsed")
+    done <<< "$jobs"
+
+    printf '%s\n' "$total_elapsed"
+}
+
+function update_time_left {
+    local -a pkgs
+    pkgs=("${(@f)$(grep '\[UPDATE\]' "$HOME/logs/updates.log" | cut -d ' ' -f 1)}")
+
+    echo "pkgs=${(j: :)pkgs}"
+
+    local update_time
+    update_time=$(med_build_time_sec "${pkgs[@]}")
+    echo "update_time=$update_time"
+
+    local build_time
+    build_time=$(cbtime_sec)
+    local pkg=$(current_pkg_from_pid $(pgrep -f '\.lfs_autobuild\.sh'))
+    if (( $(med_build_time_sec $pkg) < $build_time )); then
+	    echo "Build time has exceed median build time."
+	    build_time=$(med_build_time_sec $pkg)
+    fi
+    echo "build_time=$build_time"
+
+    local rem_update_time
+    rem_update_time=$(R_eval "$update_time - $build_time")
+    echo "Expected remaining build time=$(readable_time $rem_update_time)"
+}

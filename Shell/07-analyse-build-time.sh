@@ -25,31 +25,55 @@ function readable_time {
 }
 
 function med_build_time_sec {
-    local DURATION_LOG=$HOME/build_duration/$1
-    local median_duration_rnd=0
-    if [[ -s "$DURATION_LOG" ]]; then
-        median_duration_rnd=$(sort -n "$DURATION_LOG" |
-            awk '{
-                a[NR] = $1
-            }
-            END {
-                if (NR == 0) print 0
-                else if (NR % 2) print a[(NR + 1) / 2]
-                else print (a[NR / 2] + a[NR / 2 + 1]) / 2
-            }')
-        median_duration_rnd=$(printf "%.0f" "$median_duration_rnd")
-    fi
-    echo $median_duration_rnd
+    local pkg duration total_duration=0
+    local DURATION_LOG median_duration_rnd
+
+    for pkg in "$@"; do
+        DURATION_LOG="$HOME/build_duration/$pkg"
+        median_duration_rnd=0
+
+        if [[ -s "$DURATION_LOG" ]]; then
+            median_duration_rnd=$(sort -n "$DURATION_LOG" |
+                awk '{
+                    a[NR] = $1
+                }
+                END {
+                    if (NR == 0) print 0
+                    else if (NR % 2) print a[(NR + 1) / 2]
+                    else print (a[NR / 2] + a[NR / 2 + 1]) / 2
+                }')
+
+            median_duration_rnd=$(printf "%.0f" "$median_duration_rnd")
+        fi
+
+        total_duration=$((total_duration + median_duration_rnd))
+    done
+
+    printf '%s\n' "$total_duration"
 }
 
 alias mbts=med_build_time_sec
 alias mbtimesec=med_build_time_sec
 
 function med_build_time {
-    local median_duration=$(med_build_time_sec "$1")
-    printf "%s: %s\n" "$1" "$(readable_time "$median_duration")"
-}
+    local pkg duration median_duration=0
+    local -a packages=("$@")
+    local -a durations=()
 
+    printf '%-30s %s\n' "Package" "Median build time"
+    printf '%-30s %s\n' "------------------------------" "-----------------"
+
+    for pkg in "${packages[@]}"; do
+        duration=$(med_build_time_sec "$pkg")
+        durations+=("$duration")
+        median_duration=$(R_eval "$median_duration + $duration")
+
+        printf '%-30s %s\n' "$pkg" "$(readable_time "$duration")"
+    done
+
+    printf '%-30s %s\n' "------------------------------" "-----------------"
+    printf '%-30s %s\n' "TOTAL" "$(readable_time "$median_duration")"
+}
 alias mbt=med_build_time
 alias mbtime=med_build_time
 
