@@ -22,8 +22,12 @@ function uninst_pkgs {
             continue
         elif [[ "$pkg" == *-bin && -e "$CP/${pkg%-bin}" ]]; then
             printf '%s (%s installed)\n' "$pkg" "${pkg%-bin}"
+        elif [[ "$pkg" == *-git && -e "$CP/${pkg%-git}" ]]; then
+            printf '%s (%s installed)\n' "$pkg" "${pkg%-git}"
         elif [[ "$pkg" != *-bin && -e "$CP/${pkg}-bin" ]]; then
             printf '%s (%s installed)\n' "$pkg" "${pkg}-bin"
+        elif [[ "$pkg" != *-git && -e "$CP/${pkg}-git" ]]; then
+            printf '%s (%s installed)\n' "$pkg" "${pkg}-git"
         else
             printf '%s\n' "$pkg"
         fi
