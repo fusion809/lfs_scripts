@@ -179,7 +179,11 @@ function pkgs_table {
 
 		if [[ -f "$HOME/build_duration/$pkg" ]]
 		then
-			time=$(med_build_time "$pkg" | sed "s/^$pkg: //")
+			duration=$(med_build_time_sec "$pkg")
+			time=$(printf '%02d:%02d:%02d' \
+				$((duration / 3600)) \
+				$(((duration % 3600) / 60)) \
+				$((duration % 60)))
 			[[ -n "$time" ]] || time=-
 		else
 			time=-
@@ -256,56 +260,49 @@ function pkgs_table {
 				;;
 		esac
 
-		awk -F '\t' '
-		{
-			size[NR] = $1
-			time[NR] = $2
-			pkg[NR] = $3
-			version[NR] = substr($4, 1, 10)
-			desc[NR] = $7
+awk -F '\t' '
+{
+    size[NR] = $1
+    time[NR] = $2
+    pkg[NR] = $3
+    version[NR] = substr($4, 1, 10)
+    desc[NR] = $7
 
-			if (length($1) > max_size)
-				max_size = length($1)
+    if (length(size[NR]) > max_size)
+        max_size = length(size[NR])
+    if (length(time[NR]) > max_time)
+        max_time = length(time[NR])
+    if (length(pkg[NR]) > max_pkg)
+        max_pkg = length(pkg[NR])
+    if (length(version[NR]) > max_version)
+        max_version = length(version[NR])
+}
+END {
+    if (max_size < length("Size"))
+        max_size = length("Size")
+    if (max_time < length("Time"))
+        max_time = length("Time")
+    if (max_pkg < length("Package"))
+        max_pkg = length("Package")
+    if (max_version < length("Version"))
+        max_version = length("Version")
 
-			if (length($2) > max_time)
-				max_time = length($2)
+    printf "%*s  %*s  %-*s  %-*s  %s\n",
+        max_size, "Size",
+        max_time, "Time",
+        max_pkg, "Package",
+        max_version, "Version",
+        "Description"
 
-			if (length($3) > max_pkg)
-				max_pkg = length($3)
-
-			if (length(version[NR]) > max_version)
-				max_version = length(version[NR])
-		}
-		END {
-			if (length("Size") > max_size)
-				max_size = length("Size")
-
-			if (length("Time") > max_time)
-				max_time = length("Time")
-
-			if (length("Package") > max_pkg)
-				max_pkg = length("Package")
-
-			if (length("Version") > max_version)
-				max_version = length("Version")
-
-			printf "%*s %-*s %-*s %-*s %s\n",
-				max_size, "Size",
-				max_time, "Time",
-				max_pkg, "Package",
-				max_version, "Version",
-				"Description"
-
-			for (i = 1; i <= NR; i++)
-				printf "%*s %-*s %-*s %-*s %s\n",
-					max_size, size[i],
-					max_time, time[i],
-					max_pkg, pkg[i],
-					max_version, version[i],
-					desc[i]
-		}
-		' "$sorted_tmpfile" > "$log_file"
-
+    for (i = 1; i <= NR; i++)
+        printf "%*s  %*s  %-*s  %-*s  %s\n",
+            max_size, size[i],
+            max_time, time[i],
+            max_pkg, pkg[i],
+            max_version, version[i],
+            desc[i]
+}
+' "$sorted_tmpfile" > "$log_file"
 		rm -f "$sorted_tmpfile"
 
 		if [[ "$multiple" == false ]]
