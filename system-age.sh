@@ -1,8 +1,6 @@
 #!/bin/bash
-created=$(sudo tune2fs -l "$(findmnt -no SOURCE /)" |
-    awk -F': ' '/Filesystem created/ {print $2}')
-
-created_s=$(date -d "$created" +%s)
+created_s=$(cat $HOME/lfs-scripts/original-root-age.log)
+created=$(date -d "@$created_s")
 current_s=$(date +"%s")
 #age_s=$(R -q -e "($current_s-$created_s)" | grep "^\[1\]" | cut -d ' ' -f 2)
 #echo "age_s = $age_s"
