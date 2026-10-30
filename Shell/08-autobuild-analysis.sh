@@ -22,82 +22,111 @@ function _pkg_build_running {
     return 1
 }
 
-# Get the currently building package for a given autobuild PID
 function current_pkg_from_pid {
     local pid="$1"
+    local marker="/tmp/autobuild_${pid}_current"
+    local child_pid child_pkg cwd cmd pkg
+    local -a descendants=()
+    local -a queue=("$pid")
+    local index=1
 
-    # 1. Check for dedicated state file if available
-    if [[ -f "/tmp/autobuild_${pid}_current" ]]; then
-        awk '{print $1}' "/tmp/autobuild_${pid}_current"
-        return
-    elif [[ -f "/tmp/autobuild_current" ]]; then
-        awk '{print $1}' "/tmp/autobuild_current"
-        return
+    # Prefer the PID-specific marker.
+    if [[ -f "$marker" ]]; then
+        pkg=$(awk 'NR == 1 {print $1}' "$marker")
+        if [[ -n "$pkg" ]]; then
+            printf '%s\n' "$pkg"
+            return 0
+        fi
     fi
 
-    # 2. Check for active /tmp/build_start_timestamp_* — verify each via pgrep
-    #    so stale files left by kill -9 are skipped
-    local ts_file pkg
-    while IFS= read -r ts_file; do
-        [[ -z "$ts_file" ]] && continue
-        pkg="${ts_file#/tmp/build_start_timestamp_}"
-        _pkg_build_running "$pkg" && echo "$pkg" && return
-    done < <(ls -t /tmp/build_start_timestamp_* 2>/dev/null)
+    # Build a list of all descendants, not just direct children.
+    while (( index <= ${#queue[@]} )); do
+        pid="${queue[$index]}"
+        (( index++ ))
 
-    # 3. Check child processes (e.g. tee writing to build_logs/<pkg>)
-    local child_pkg
-    child_pkg=$(pgrep -P "$pid" -a 2>/dev/null | grep -oE 'build_logs/[^ ]+' | head -n 1 | sed 's|build_logs/||')
-    if [[ -n "$child_pkg" ]]; then
-        echo "$child_pkg"
-        return
-    fi
+        while IFS= read -r child_pid; do
+            [[ -z "$child_pid" ]] && continue
+            descendants+=("$child_pid")
+            queue+=("$child_pid")
+        done < <(pgrep -P "$pid" 2>/dev/null)
+    done
 
-    # 4. Check cwd of the autobuild process or its child (for custom packages)
-    local cwd
-    cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
-    if [[ "$cwd" == *"/lfs_packaging/"* ]]; then
-        basename "$cwd"
-        return
-    fi
+    # Look for a build-log path in the process tree.
+    for child_pid in "${descendants[@]}"; do
+        cmd=$(tr '\0' ' ' < "/proc/$child_pid/cmdline" 2>/dev/null)
+        child_pkg=$(printf '%s\n' "$cmd" |
+            grep -oE 'build_logs/[^ /]+' |
+            head -n 1 |
+            sed 's|build_logs/||')
 
-    echo "unknown"
+        if [[ -n "$child_pkg" ]]; then
+            printf '%s\n' "$child_pkg"
+            return 0
+        fi
+    done
+
+    # Look for a package-specific working directory in the process tree.
+    for child_pid in "${descendants[@]}" "$pid"; do
+        cwd=$(readlink -f "/proc/$child_pid/cwd" 2>/dev/null)
+
+        if [[ "$cwd" == *"/lfs_packaging/"* ]]; then
+            pkg="${cwd#*/lfs_packaging/}"
+            pkg="${pkg%%/*}"
+
+            if [[ -n "$pkg" && "$pkg" != "." ]]; then
+                printf '%s\n' "$pkg"
+                return 0
+            fi
+        fi
+    done
+
+    # Fall back to the package argument of this autobuild invocation.
+    cmd=$(tr '\0' ' ' < "/proc/$1/cmdline" 2>/dev/null)
+
+    for pkg in povray inkscape gimp vectorcraft-bin openexr; do
+        if [[ " $cmd " == *" $pkg "* ]]; then
+            printf '%s\n' "$pkg"
+            return 0
+        fi
+    done
+
+    printf '%s\n' "unknown"
 }
 
-# Get elapsed time for the current package build (not the entire script)
 function btime_pkg_elapsed {
     local pid="$1"
     local pkg="$2"
+    local start_ts file_ts start
 
-    # 1. State file start time
+    # Prefer the PID-specific start timestamp.
     if [[ -f "/tmp/autobuild_${pid}_current" ]]; then
-        local start_ts
-        start_ts=$(awk '{print $2}' "/tmp/autobuild_${pid}_current")
-        if [[ -n "$start_ts" ]]; then
+        start_ts=$(awk 'NR == 1 {print $2}' "/tmp/autobuild_${pid}_current")
+
+        if [[ "$start_ts" =~ ^[0-9]+$ ]]; then
             echo $(( $(date +%s) - start_ts ))
             return
         fi
     fi
 
-    # 2. Timestamp file mtime
-    if [[ -f "/tmp/build_start_timestamp_${pkg}" ]]; then
-        local file_ts
+    # Fall back to the package timestamp.
+    if [[ -n "$pkg" && -f "/tmp/build_start_timestamp_${pkg}" ]]; then
         file_ts=$(stat -c %Y "/tmp/build_start_timestamp_${pkg}" 2>/dev/null)
-        if [[ -n "$file_ts" ]]; then
+
+        if [[ "$file_ts" =~ ^[0-9]+$ ]]; then
             echo $(( $(date +%s) - file_ts ))
             return
         fi
     fi
 
-    # Fallback: total process elapsed time
-    local start
+    # Last resort: time since the autobuild process started.
     start=$(ps -p "$pid" -o lstart= 2>/dev/null)
+
     if [[ -n "$start" ]]; then
         echo $(( $(date +%s) - $(date -d "$start" +%s) ))
     else
         echo 0
     fi
 }
-
 # Elapsed time of current autobuild job
 function cbtime {
     local jobs
@@ -110,15 +139,10 @@ function cbtime {
     echo "autobuild job(s):"
     while IFS= read -r job; do
         [[ -z "$job" ]] && continue
-        local pid
-        pid=$(echo "$job" | awk '{print $1}')
-
-        local pkg
-        pkg=$(current_pkg_from_pid "$pid")
-        local elapsed
-        elapsed=$(btime_pkg_elapsed "$pid" "$pkg")
-        local med
-        med=$(med_build_time_sec "$pkg")
+        local pid=$(echo "$job" | awk '{print $1}')
+	local pkg=$(current_pkg_from_pid "$pid" 2>/dev/null)
+        local elapsed=$(btime_pkg_elapsed "$pid" "$pkg" 2>/dev/null)
+        local med=$(med_build_time_sec "$pkg" 2>/dev/null)
 
         local perc="N/A"
         if [[ -n "$med" && "$med" -gt 0 ]]; then
