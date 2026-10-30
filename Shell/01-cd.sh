@@ -18,6 +18,9 @@ function cdbp {
 	cd $BP/$1
 }
 
+function cdc {
+	cd $HOME/Chem/$1
+}
 function cdcp {
 	cd $CP/$1
 }
