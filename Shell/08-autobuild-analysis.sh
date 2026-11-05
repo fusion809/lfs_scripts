@@ -141,6 +141,22 @@ function cbtime {
         [[ -z "$job" ]] && continue
         local pid=$(echo "$job" | awk '{print $1}')
 	local pkg=$(current_pkg_from_pid "$pid" 2>/dev/null)
+	local version=$(awk -v pkg="$pkg" '
+		$1 == "[VERSION]" {
+			name = $2
+			sub(/:$/, "", name)
+			if (name == pkg) {
+				$1 = ""
+				$2 = ""
+				sub(/^[[:space:]]+/, "")
+				print
+				exit
+			}
+		}' "$HOME/logs/autobuild-$pkg-$pid.log" 2>/dev/null)
+	[[ -n "$version" ]] || version="unknown"
+	if [[ "$pkg" == *-git && "$version" =~ ^[[:xdigit:]]{7,}$ ]]; then
+		version="${version[1,7]}"
+	fi
         local elapsed=$(btime_pkg_elapsed "$pid" "$pkg" 2>/dev/null)
         local med=$(med_build_time_sec "$pkg" 2>/dev/null)
 
@@ -151,8 +167,9 @@ function cbtime {
             perc="${perc}%"
         fi
 
-        printf '%s (PID %s) time elapsed: %02d:%02d:%02d (%s completed)\n' \
+		printf '%s %s (PID %s) time elapsed: %02d:%02d:%02d (%s completed)\n' \
             "$pkg" \
+            "$version" \
             "$pid" \
             $((elapsed / 3600)) \
             $(((elapsed % 3600) / 60)) \
