@@ -27,6 +27,13 @@ function log_is_recent {
 }
 
 function update_if_needed {
+    # Do not trigger background updates check while updatec or autobuild is running
+    if [[ -f "$HOME/logs/updatec.lock" ]] && ! flock -n 8 8<"$HOME/logs/updatec.lock" 2>/dev/null; then
+        return 0
+    fi
+    if pgrep -f '(.lfs_autobuild.sh|updatec)' >/dev/null 2>&1; then
+        return 0
+    fi
     if [[ ! -f "$LOG" ]]; then
         # No log at all — refresh in background, print empty/zero stats now
         (
