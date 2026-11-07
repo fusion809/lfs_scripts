@@ -141,18 +141,23 @@ function cbtime {
         [[ -z "$job" ]] && continue
         local pid=$(echo "$job" | awk '{print $1}')
 	local pkg=$(current_pkg_from_pid "$pid" 2>/dev/null)
-	local version=$(awk -v pkg="$pkg" '
-		$1 == "[VERSION]" {
-			name = $2
-			sub(/:$/, "", name)
-			if (name == pkg) {
-				$1 = ""
-				$2 = ""
-				sub(/^[[:space:]]+/, "")
-				print
-				exit
-			}
-		}' "$HOME/logs/autobuild-$pkg-$pid.log" 2>/dev/null)
+	local -a job_logs
+	job_logs=("$HOME"/logs/autobuild-*-$pid.log(N))
+	local version=""
+	if (( ${#job_logs[@]} > 0 )); then
+		version=$(awk -v pkg="$pkg" '
+			$1 == "[VERSION]" {
+				name = $2
+				sub(/:$/, "", name)
+				if (name == pkg) {
+					$1 = ""
+					$2 = ""
+					sub(/^[[:space:]]+/, "")
+					print
+					exit
+				}
+			}' "${job_logs[1]}" 2>/dev/null)
+	fi
 	[[ -n "$version" ]] || version="unknown"
 	if [[ "$pkg" == *-git && "$version" =~ ^[[:xdigit:]]{7,}$ ]]; then
 		version="${version[1,7]}"
