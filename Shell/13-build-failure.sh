@@ -3,9 +3,14 @@ function bfail {
 }
 
 function failmsg {
-	if [[ -n $2 ]]; then
-		grep -r '^\[ERROR\]' ~/build_logs/$1 -B $2
-	else
-		grep -r '^\[ERROR\]' ~/build_logs/$1 -B 20
+	local logfile="$HOME/build_logs/$1"
+	local lines=30
+	if [[ "$2" =~ ^[0-9]+$ ]]; then
+		lines="$2"
 	fi
+	if [[ ! -f "$logfile" ]]; then
+		printf 'Build log not found: %s\n' "$logfile" >&2
+		return 1
+	fi
+	tail -n "$lines" -- "$logfile" | tr -d '\000'
 }

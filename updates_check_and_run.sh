@@ -1,43 +1,5 @@
-
 #!/bin/zsh
 
-function pkgver {
-    if [[ -n ${2-} ]]; then
-        find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
-            lines=$1
-            shift
-            for file; do
-                head -n "$lines" "$file" | tail -n 1
-            done
-        ' sh "$2" {} + | sort -V | tail -n 1
-    else
-        find /var/lib/{book,custom}-packages -type f -name "$1" -exec sh -c '
-            for file; do
-                head -n 1 "$file"
-            done
-        ' sh {} + | sort -V | tail -n 1
-    fi
-}
-
-function upver {
-    local pkgname=$1
-
-    if [[ -f $LFP/$pkgname/build.sh ]]; then
-        local build_sh="$LFP/$pkgname/build.sh"
-    else
-        printf 'No build.sh found for %s\n' "$pkgname" >&2
-        return 1
-    fi
-
-    (
-        source <(
-            sed -n '1,/^version=/p' "$build_sh"
-        )
-        printf '%s\n' "$version"
-    )
-}
-
-source "$HOME/lfs_packaging/shared-funcs.sh"
 set -u
 
 logfile="$HOME/logs/updates.log"
@@ -65,8 +27,8 @@ if [[ ! -f $logfile ]]; then
     exit 1
 fi
 
-# Identify packages requiring updates.
-# Read lines into a Zsh array; mapfile is a Bash-only builtin.
+# The update report has already compared local and upstream versions. Trust
+# its actionable labels instead of repeating each package's upstream lookup.
 pkgs_updates=()
 while IFS= read -r pkg; do
     [[ -n $pkg ]] && pkgs_updates+=("$pkg")
@@ -74,39 +36,16 @@ done < <(
     awk '/\[UPDATE\]|\[FILES MISSING\]/ { print $1 }' "$logfile"
 )
 
-pkgs=()
-
-if (( ${#pkgs_updates[@]} > 0 )); then
-    for pkg in "${pkgs_updates[@]}"; do
-        upstream_version=$(upver "$pkg") || {
-            echo "WARNING: Could not determine upstream version for $pkg; retaining it."
-            pkgs+=("$pkg")
-            continue
-        }
-
-        installed_version=$(pkgver "$pkg") || {
-            echo "WARNING: Could not determine installed version for $pkg; retaining it."
-            pkgs+=("$pkg")
-            continue
-        }
-
-        if [[ $upstream_version != "$installed_version" ]]; then
-            pkgs+=("$pkg")
-        fi
-    done
-
-    if (( ${#pkgs[@]} == 0 )); then
-        echo "No packages need updating."
-        exit 0
-    fi
-else
+if (( ${#pkgs_updates[@]} == 0 )); then
     echo "No packages need updating."
     exit 0
 fi
+pkgs=("${pkgs_updates[@]}")
 
 printf 'Packages needing attention:'
 printf ' %s' "${pkgs[@]}"
 printf '\n'
+
 # Check whether the autobuild script is already running.
 autobuild_running=false
 
@@ -117,7 +56,7 @@ for proc in /proc/[0-9]*; do
     # Exclude this script and its parent processes.
     [[ $pid == "$$" || $pid == "$PPID" ]] && continue
 
-    cmdline=$(tr '\0' '\n' < "$proc/cmdline" 2>/dev/null || :)
+    cmdline=$(cat "$proc/cmdline" 2>/dev/null | tr '\0' '\n' 2>/dev/null || :)
 
     if grep -Fxq -- "$HOME/.lfs_autobuild.sh" <<< "$cmdline" ||
        grep -Fxq -- "$HOME/lfs-scripts/.lfs_autobuild.sh" <<< "$cmdline"; then
@@ -144,7 +83,7 @@ fi
 while IFS= read -r pid; do
     [[ -r /proc/$pid/cmdline ]] || continue
 
-    cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || :)
+    cmdline=$(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' ' ' 2>/dev/null || :)
 
     if [[ $cmdline == *"zsh -ic updatec"* ]]; then
         echo "Existing updatec process found (PID $pid); skipping."
@@ -166,4 +105,3 @@ echo "Finished: $(date '+%F %T %Z')"
 echo "Exit status: $status"
 
 exit "$status"
-
