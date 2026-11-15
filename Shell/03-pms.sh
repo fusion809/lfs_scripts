@@ -7,5 +7,5 @@ function autobuild {
 source ~/.lfs_scripts/lfs-vm-bootstrap.sh 2>/dev/null
 
 function updatec_log {
-	tail -f $HOME/$(ps ax | grep "updatec.log*" | grep -v "grep --color" | sed 's|.*/home/fusion809||g')
+	tail -f $HOME/logs/updatec.log.$(ps ax | grep "updatec.log*" | grep -v "grep --color" | sed 's|.*/home/fusion809||g' | sed 's/.*log.//g' | sort | tail -n 1)
 }
