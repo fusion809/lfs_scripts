@@ -1,0 +1,137 @@
+#!/usr/bin/python3
+"""Retry pip commands after repairing a distribution with missing metadata."""
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from email.parser import Parser
+
+
+def real_pip():
+    here = Path(__file__).resolve()
+    for entry in os.environ.get("PATH", "").split(os.pathsep):
+        candidate = Path(entry or ".") / "pip3"
+        try:
+            if candidate.resolve() != here and candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+        except OSError:
+            pass
+    return "/usr/bin/pip3"
+
+
+def run(command):
+    return subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def broken_distributions():
+    """Find identifiable dist-info records lacking the metadata pip tried to read."""
+    roots = set()
+    try:
+        import site
+
+        roots.update(site.getsitepackages())
+        user_site = site.getusersitepackages()
+        roots.update(user_site if isinstance(user_site, list) else [user_site])
+    except Exception:
+        pass
+    roots.update(p for p in sys.path if p and ("site-packages" in p or "dist-packages" in p))
+
+    found = []
+    for root in roots:
+        base = Path(root)
+        if not base.is_dir():
+            continue
+        for info in base.glob("*.dist-info"):
+            if (info / "METADATA").exists():
+                continue
+            match = re.match(r"(?P<name>.+)-(?P<version>\d[^/]*)\.dist-info$", info.name)
+            if match:
+                found.append((match.group("name"), match.group("version"), info))
+    return found
+
+
+def list_from_metadata_dirs():
+    """Print a basic package/version listing without importlib's failing path."""
+    roots = set()
+    import site
+
+    roots.update(site.getsitepackages())
+    user_site = site.getusersitepackages()
+    roots.update(user_site if isinstance(user_site, list) else [user_site])
+    roots.update(p for p in sys.path if p and ("site-packages" in p or "dist-packages" in p))
+    packages = {}
+    for root in roots:
+        base = Path(root)
+        if not base.is_dir():
+            continue
+        for info in (*base.glob("*.dist-info"), *base.glob("*.egg-info")):
+            name = version = None
+            metadata_file = info / ("PKG-INFO" if info.suffix == ".egg-info" else "METADATA")
+            try:
+                headers = Parser().parsestr(metadata_file.read_text(errors="replace"))
+                name, version = headers.get("Name"), headers.get("Version")
+            except OSError:
+                pass
+            if not name or not version:
+                match = re.match(r"(?P<name>.+)-(?P<version>\d[^/]*)\.(?:dist|egg)-info$", info.name)
+                if match:
+                    name, version = match.group("name"), match.group("version")
+            if name and version:
+                packages[name.lower().replace("_", "-")] = (name, version)
+    rows = sorted(packages.values(), key=lambda row: row[0].lower())
+    width = max([len("Package"), *(len(name) for name, _ in rows)])
+    print(f"{'Package':<{width}}  Version")
+    print(f"{'-' * width}  -------")
+    for name, version in rows:
+        print(f"{name:<{width}}  {version}")
+    return 0
+
+
+def main():
+    pip = real_pip()
+    original = run([pip, *sys.argv[1:]])
+    if original.stdout:
+        sys.stdout.write(original.stdout)
+    if original.returncode == 0 or "MetadataNotFound: No package metadata was found." not in original.stderr:
+        if original.stderr:
+            sys.stderr.write(original.stderr)
+        return original.returncode
+
+    broken = broken_distributions()
+    if not broken:
+        sys.stderr.write(original.stderr)
+        sys.stderr.write("pip3 auto-repair: could not identify a missing .dist-info/METADATA record; left the environment untouched.\n")
+        return original.returncode
+
+    for name, version, location in broken:
+        sys.stderr.write(f"pip3 auto-repair: reinstalling {name}=={version} to restore metadata in {location}\n")
+        repair = run([pip, "install", "--force-reinstall", "--no-deps", "--ignore-installed", f"{name}=={version}"])
+        if repair.stdout:
+            sys.stdout.write(repair.stdout)
+        if repair.stderr:
+            sys.stderr.write(repair.stderr)
+        if repair.returncode:
+            sys.stderr.write(f"pip3 auto-repair: reinstall of {name} failed.\n")
+            # pip's default table formatter asks each distribution whether it is
+            # editable. Freeze output avoids that metadata access path.
+            if sys.argv[1:2] == ["list"] and "--format" not in sys.argv and "-f" not in sys.argv:
+                sys.stderr.write("pip3 auto-repair: showing a basic listing from installed metadata directories; damaged system metadata remains unchanged.\n")
+                return list_from_metadata_dirs()
+            sys.stderr.write("pip3 auto-repair: rerunning the original command for its diagnostic.\n")
+            if original.stderr:
+                sys.stderr.write(original.stderr)
+            return original.returncode
+
+    retry = run([pip, *sys.argv[1:]])
+    if retry.stdout:
+        sys.stdout.write(retry.stdout)
+    if retry.stderr:
+        sys.stderr.write(retry.stderr)
+    return retry.returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -183,16 +183,6 @@ function cbtime {
     done <<< "$jobs"
 }
 
-function autobuild_log {
-	if ps ax | grep autobuild | grep -v "grep \"autobuild\"" &> /dev/null; then
-		tail -f /tmp/lfs-autobuild.log
-	else
-		echo "No autobuild process running. Below is the last 10 lines of lfs-autobuild.log"
-		tail -n 10 /tmp/lfs-autobuild.log
-	fi
-}
-
-
 function last_build {
 	$HOME/lfs-scripts/last_autobuild.sh
 }
