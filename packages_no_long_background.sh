@@ -22,7 +22,7 @@ CN=$(nopkg custom);
 CP=$(comno custom); 
 
 if [[ $CH != "$(stHash custom)" ]]; then
-	pip=$(pip3 list | wc -l)
+	pip=$($HOME/.local/bin/pip3 list | wc -l)
 	R=$(Rscript -e 'ip <- installed.packages(); cat(ip[,1], sep="\n")' | wc -l)
 	uninst=$(zsh -ic "uninst_pkgs" | grep -v installed | wc -l)
 	julia=$(julia -e 'using Pkg; Pkg.status()' | grep -v "Project.toml" | wc -l)
